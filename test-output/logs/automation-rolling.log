@@ -1,0 +1,54 @@
+2025-07-10 18:48:57 [INFO] utils.ConfigReader - Configuration loaded from: config.properties
+2025-07-10 18:48:57 [INFO] utils.ConfigReader - Total properties loaded: 29
+2025-07-10 18:48:57 [INFO] utils.ConfigReader - === Configuration Information ===
+2025-07-10 18:48:57 [INFO] utils.ConfigReader - Current config file: config.properties
+2025-07-10 18:48:57 [INFO] utils.ConfigReader - Test environment: default
+2025-07-10 18:48:57 [INFO] utils.ConfigReader - Execution mode: local
+2025-07-10 18:48:57 [INFO] utils.ConfigReader - Browser: chrome
+2025-07-10 18:48:57 [INFO] utils.ConfigReader - Base URL: https://deepak30995.graphy.com/
+2025-07-10 18:48:57 [INFO] utils.ConfigReader - === End Configuration Info ===
+2025-07-10 18:48:58 [INFO] utils.ExtentReportManager - ExtentReports initialized successfully. Report path: test-output/extent-reports/ExtentReport_10-07-2025_18-48-57.html
+2025-07-10 18:48:58 [INFO] base.BaseTest - ================================================================================
+2025-07-10 18:48:58 [INFO] base.BaseTest - TEST SUITE STARTED
+2025-07-10 18:48:58 [INFO] base.BaseTest - Environment: QA
+2025-07-10 18:48:58 [INFO] base.BaseTest - Execution Mode: local
+2025-07-10 18:48:58 [INFO] base.BaseTest - Browser: chrome
+2025-07-10 18:48:58 [INFO] base.BaseTest - Config File: config.properties
+2025-07-10 18:48:58 [INFO] base.BaseTest - Java Version: 11.0.21
+2025-07-10 18:48:58 [INFO] base.BaseTest - OS: Mac OS X 15.5
+2025-07-10 18:48:58 [INFO] base.BaseTest - ================================================================================
+2025-07-10 18:48:58 [INFO] utils.UnifiedDriverManager - Creating driver - Mode: local, Browser: chrome
+2025-07-10 18:49:05 [INFO] utils.UnifiedDriverManager - Local chrome driver created successfully
+2025-07-10 18:49:05 [INFO] utils.UnifiedDriverManager - Driver configured with timeouts - Implicit: 10s, Page Load: 30s
+2025-07-10 18:49:10 [INFO] base.BaseTest - Test setup completed for: testCompleteLoginFlow | Environment: QA | Mode: local | Browser: chrome
+2025-07-10 18:49:10 [INFO] pages.Login - pages.Login page initialized
+2025-07-10 18:49:20 [INFO] base.BasePage - Clicked on element: Proxy element for: DefaultElementLocator 'By.id: acceptCookiesBtn'
+2025-07-10 18:49:20 [INFO] pages.Login - Step 1: Clicked on accept cookies button on home page
+2025-07-10 18:49:21 [INFO] base.BasePage - Clicked on element: [[ChromeDriver: chrome on mac (da2f181ed217b0d714088ee1a9c7a76a)] -> xpath: //a[text()='Login']]
+2025-07-10 18:49:21 [INFO] pages.Login - Step 2: Clicked on 'Login' button from home page
+2025-07-10 18:49:21 [INFO] base.BasePage - Switched to frame element
+2025-07-10 18:49:32 [INFO] base.BasePage - Clicked on element: Proxy element for: DefaultElementLocator 'By.xpath: //div[@class='signup_lable_nr1k1']//strong[text()='Log in']'
+2025-07-10 18:49:32 [INFO] pages.Login - Step 3: Clicked on 'Log in' button in popup
+2025-07-10 18:49:42 [INFO] base.BasePage - Clicked on element: Proxy element for: DefaultElementLocator 'By.xpath: //button[@title='Continue with email']'
+2025-07-10 18:49:42 [INFO] pages.Login - Step 4: Clicked on 'Continue with email' button
+2025-07-10 18:49:43 [INFO] base.BasePage - Typed text 'software.testing30995@gmail.com' into element
+2025-07-10 18:49:43 [INFO] pages.Login - Step 5a: Entered email: software.testing30995@gmail.com
+2025-07-10 18:49:43 [INFO] base.BasePage - Typed text 'pass' into element
+2025-07-10 18:49:43 [INFO] pages.Login - Step 5b: Entered password (masked for security)
+2025-07-10 18:49:53 [INFO] base.BasePage - Clicked on element: Proxy element for: DefaultElementLocator 'By.xpath: //button[text()='Next']'
+2025-07-10 18:49:53 [INFO] base.BasePage - Switched to default content
+2025-07-10 18:49:54 [INFO] base.BasePage - Switched to frame element
+2025-07-10 18:49:54 [INFO] pages.Login - Step 6: Clicked on 'Next' button
+2025-07-10 18:49:54 [INFO] base.BasePage - Switched to default content
+2025-07-10 18:49:54 [INFO] pages.Login - Step 7: Retrieved 'Active Courses' header text: Active Courses
+2025-07-10 18:49:54 [INFO] utils.UnifiedDriverManager - Test status marked as passed for local platform
+2025-07-10 18:49:54 [INFO] utils.UnifiedDriverManager - Driver quit successfully
+2025-07-10 18:49:54 [INFO] base.BaseTest - Test completed: testCompleteLoginFlow
+2025-07-10 18:49:54 [INFO] utils.ExtentReportManager - ExtentReports flushed successfully.
+2025-07-10 18:49:54 [INFO] utils.ExtentReportManager - Report available at: test-output/extent-reports/ExtentReport_10-07-2025_18-48-57.html
+2025-07-10 18:49:54 [INFO] utils.ExtentReportManager - Open report: file:///Users/deepakkumar/Documents/Coding/UIAutomationSelenium/test-output/extent-reports/ExtentReport_10-07-2025_18-48-57.html
+2025-07-10 18:49:54 [INFO] base.BaseTest - ================================================================================
+2025-07-10 18:49:54 [INFO] base.BaseTest - TEST SUITE COMPLETED
+2025-07-10 18:49:54 [INFO] base.BaseTest - Environment: QA
+2025-07-10 18:49:54 [INFO] base.BaseTest - Reports available at: test-output/extent-reports/ExtentReport_10-07-2025_18-48-57.html
+2025-07-10 18:49:54 [INFO] base.BaseTest - ================================================================================
