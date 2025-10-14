@@ -69,7 +69,6 @@ open test-output/extent-reports/
 # Reports: Found in test-output/extent-reports/
 
 =================================================================================
-=================================================================================
 
 # UIAutomationSelenium Framework
 
