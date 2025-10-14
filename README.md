@@ -9,7 +9,7 @@ docker-compose up -d
 # Step 3: Run your tests (after 60 seconds)
 bash run-tests.sh docker chrome LoginTest
 
-===================================================================================================
+====================================================================================
 
 🔧 If You Get Java Error
 If you see "invalid target release: 11", run this first:
@@ -20,13 +20,13 @@ export PATH=$JAVA_HOME/bin:$PATH
 # Then run tests
 bash run-tests.sh docker chrome LoginTest
 
-===================================================================================================
+===============================================================================
 
 🛑 To Stop Docker Grid
 # Stop when done
 docker-compose down
 
-===================================================================================================
+===============================================================================
 
 📊 Check If Docker Grid is Running
 # Check status
@@ -38,7 +38,7 @@ curl -sSL http://localhost:4444/wd/hub/status
 # View grid console
 open http://localhost:4444/ui
 
-===================================================================================================
+===============================================================================
 
 🎯 Different Browser Options
 # Chrome (default)
@@ -50,7 +50,7 @@ bash run-tests.sh docker firefox LoginTest
 # Edge
 bash run-tests.sh docker edge LoginTest
 
-===================================================================================================
+================================================================================
 
 📁 View Your Test Reports
 # Open latest report
@@ -59,7 +59,7 @@ open test-output/extent-reports/*.html
 # Or check this folder
 open test-output/extent-reports/
 
-===================================================================================================
+================================================================================
 
 💡 Pro Tips
 
@@ -68,8 +68,8 @@ open test-output/extent-reports/
 # Java: If tests don't compile, you need to set Java 11 (see above)
 # Reports: Found in test-output/extent-reports/
 
-====================================================================================================
-====================================================================================================
+=================================================================================
+=================================================================================
 
 # UIAutomationSelenium Framework
 
