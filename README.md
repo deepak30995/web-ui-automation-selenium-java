@@ -260,7 +260,7 @@ docker --version
 ### **Run Your First Test (Local)**
 ```bash
 # Navigate to project directory
-cd /path/to/UIAutomationSelenium
+cd /path/to/web-ui-automation-selenium-java
 
 # Run login test on local Chrome
 mvn clean test -Dtest=LoginTest -Dbrowser=chrome
