@@ -1,7 +1,7 @@
 
 Quick Reference: Running Your Selenium Tests in Docker
 # Step 1: Navigate to your project
-cd /Users/deepakkumar/Documents/Coding/UIAutomationSelenium
+cd /Users/deepakkumar/Documents/Coding/web-ui-automation-selenium-java
 
 # Step 2: Start Docker Grid
 docker-compose up -d
@@ -205,8 +205,11 @@ BaseTest (Teardown + Report Generation)
 
 ### **1. Clone Repository**
 ```bash
-git clone <repository-url>
-cd UIAutomationSelenium
+# Clone repository
+git clone https://github.com/deepak30995/web-ui-automation-selenium-java.git
+
+# Navigate to project directory
+cd web-ui-automation-selenium-java
 ```
 
 ### **2. Install Dependencies**
