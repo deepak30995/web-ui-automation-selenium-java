@@ -1,7 +1,7 @@
 
 Quick Reference: Running Your Selenium Tests in Docker
 # Step 1: Navigate to your project
-cd /Users/deepakkumar/Documents/Coding/web-ui-automation-selenium-java
+cd /Users/deepakkumar/Documents/Coding/UIAutomationSelenium
 
 # Step 2: Start Docker Grid
 docker-compose up -d
@@ -19,6 +19,9 @@ export PATH=$JAVA_HOME/bin:$PATH
 
 # Then run tests
 bash run-tests.sh docker chrome LoginTest
+
+# The default VNC password for Selenium Docker containers is:
+secret
 
 ===================================================================================================
 
@@ -143,7 +146,7 @@ open test-output/extent-reports/
 ┌─────────────────▼───────────────────────┐
 │      Page Object Layer (POM)            │
 │  ┌───────────────────────────────────┐  │
-│  │    Login.java                     │  │
+│  │    LoginPage.java                 │  │
 │  │    (More pages can be added)      │  │
 │  └───────────────────────────────────┘  │
 └─────────────────┬───────────────────────┘
@@ -163,6 +166,37 @@ open test-output/extent-reports/
 │  │ ExtentReportManager              │   │
 │  └──────────────────────────────────┘   │
 └──────────────────────────────────────────┘
+```
+
+The top three layers are test code and live in `src/test/java`. Only the utilities
+layer sits in `src/main/java`, as a reusable library with no TestNG dependency -
+which is why `testng` is scoped `<scope>test</scope>` in `pom.xml`.
+
+### **Layer Responsibilities**
+
+Keeping these boundaries is what stops a change in one test from rippling outward:
+
+| Layer | Owns | Must never contain |
+|-------|------|--------------------|
+| Test | Flow order, assertions, test data | Locators, waits, frame handling |
+| Page Object | Locators, actions on one page | Step numbers, test names, assertions |
+| Base | Waits, clicks, frame navigation | Anything page-specific |
+| Utilities | Driver, config, reporting | Test or page knowledge |
+
+**Page objects must not encode their position in a flow.** A method logging
+`"Step 4: Entered email"` is only correct for the one test that calls it fourth;
+reorder that test, or reuse the page elsewhere, and the label is wrong. Page objects
+log *what they did* ("Entered email"), and the test owns the sequence - the report
+already renders entries in order, so numbering them by hand is duplicated bookkeeping.
+
+**Shared mechanics belong in `BasePage`.** For example, entering an iframe is resolved
+relative to the current browsing context, so a page already inside one cannot reach
+another. `BasePage.switchToFrameFromRoot(WebElement)` returns to the top-level document
+first, making frame entry safe to call from any step:
+
+```java
+// In any page object - inherited, not reimplemented
+switchToFrameFromRoot(loginPopupIframe);
 ```
 
 ### **Execution Flow**
@@ -405,10 +439,67 @@ implicit.wait=10
 explicit.wait=15
 page.load.timeout=30
 
-# Test credentials
-test.learner.email=test@example.com
-test.learner.password=securePassword123
+# Test credentials - resolved from environment variables, never hardcoded
+test.learner.email=${TEST_LEARNER_EMAIL}
+test.learner.password=${TEST_LEARNER_PASSWORD}
 ```
+
+### **Test Credentials**
+
+Credentials are **never stored in the repository**. `config.properties` holds only
+`${...}` placeholders, which `ConfigReader` resolves at runtime from one of two
+sources.
+
+**Resolution order:** environment variable → `secrets.properties` → unresolved (warns)
+
+#### Local development - `secrets.properties`
+
+Create the file once and the values persist across every run, from both the IDE and
+the command line:
+
+```bash
+cp src/main/resources/secrets.properties.example src/main/resources/secrets.properties
+```
+
+Then fill it in:
+
+```properties
+TEST_LEARNER_EMAIL=your.learner@example.com
+TEST_LEARNER_PASSWORD=your-password
+```
+
+`secrets.properties` is **git-ignored**; only the `.example` template is committed.
+Keys match the `${PLACEHOLDER}` names used in the config files.
+
+> Prefer this over `export` for IDE runs - IntelliJ launched from the Dock does not
+> inherit your shell profile, so exported variables are invisible to it.
+
+#### CI - environment variables
+
+Environment variables take precedence over the file, so CI needs no secrets file:
+
+```bash
+export TEST_LEARNER_EMAIL="your.learner@example.com"
+export TEST_LEARNER_PASSWORD="your-password"
+```
+
+A single run can also override any property directly:
+
+```bash
+mvn clean test -Dtest.learner.password=your-password
+```
+
+#### When nothing is set
+
+A missing **or blank** value is left unresolved and logged, so the failure is obvious
+rather than silent:
+
+```
+WARN  utils.ConfigReader - Could not resolve 'TEST_LEARNER_PASSWORD' - set it as an
+      environment variable or add it to secrets.properties
+```
+
+Credential values are masked as `***MASKED***` in all log output.
 
 ### **Changing Test URL**
 ```bash
@@ -434,6 +525,8 @@ mvn clean test -Dbase.url=https://new-url.com
 - Test duration and timestamps
 - Pass/Fail status with details
 - Automatic cleanup (keeps latest 5 reports)
+- Screenshot attached automatically on failure, captured before the driver quits
+  and saved under the `screenshots.path` directory
 
 **View Report**:
 ```bash
@@ -540,27 +633,29 @@ UIAutomationSelenium/
 ├── src/
 │   ├── main/
 │   │   ├── java/
-│   │   │   ├── base/
-│   │   │   │   ├── BasePage.java          # Common page methods
-│   │   │   │   └── BaseTest.java          # Test setup/teardown
-│   │   │   ├── pages/
-│   │   │   │   └── Login.java             # Login page object
-│   │   │   └── utils/
+│   │   │   └── utils/                     # Reusable framework library
 │   │   │       ├── ConfigReader.java      # Configuration manager
 │   │   │       ├── ExtentReportManager.java  # Report manager
 │   │   │       └── UnifiedDriverManager.java # Driver manager
 │   │   └── resources/
 │   │       ├── config*.properties         # Environment configs
-│   │       ├── log4j2.xml                # Logging config
-│   │       └── testng.xml                # TestNG suite
+│   │       ├── secrets.properties.example # Credential template (copy, don't commit)
+│   │       └── log4j2.xml                 # Logging config (classpath)
 │   └── test/
-│       └── java/
+│       └── java/                          # All test code lives here
+│           ├── base/
+│           │   ├── BasePage.java          # Common page methods
+│           │   └── BaseTest.java          # Test setup/teardown
+│           ├── pages/
+│           │   └── LoginPage.java         # Login page object
 │           └── tests/
 │               └── LoginTest.java         # Login test cases
 ├── test-output/
 │   ├── extent-reports/                   # HTML reports
+│   ├── screenshots/                      # Failure screenshots
 │   ├── logs/                             # Execution logs
 │   └── allure-results/                   # Allure data
+├── testng.xml                            # TestNG suite (project root)
 ├── docker-compose.yml                    # Docker Grid config
 ├── pom.xml                              # Maven dependencies
 ├── .gitignore                           # Git ignore rules
@@ -620,14 +715,16 @@ mvn dependency:purge-local-repository
 Error: No configuration found
 ```
 
-**Solution**:
-```bash
-# Ensure log4j2.xml is in correct location
-ls -la src/main/resources/log4j2.xml
+**Solution**: Log4j2 auto-discovers `log4j2.xml` from the **classpath root**, so the file
+must live under a resources folder — not the project root.
 
-# If missing, copy from src/test/resources
-cp src/test/resources/log4j2.xml src/main/resources/
+```bash
+# Verify log4j2.xml is on the classpath
+ls -la src/main/resources/log4j2.xml
 ```
+
+Do not set `-Dlog4j2.configurationFile`; classpath discovery handles it. A stale value
+there points Log4j2 at a non-existent file and silently disables your config.
 
 #### **5. Docker Nodes Not Connecting**
 ```
@@ -636,19 +733,66 @@ Error: SE_EVENT_BUS_HOST not set
 
 **Solution**: Already fixed in `docker-compose.yml` with environment variables
 
+#### **6. Login Fails with an Unresolved Credential Placeholder**
+```
+WARN  utils.ConfigReader - Environment variable not found: TEST_LEARNER_PASSWORD
+```
+The literal string `${TEST_LEARNER_PASSWORD}` gets typed into the password field and
+login fails.
+
+**Solution**: Create the git-ignored secrets file and fill in the values:
+```bash
+cp src/main/resources/secrets.properties.example src/main/resources/secrets.properties
+```
+Or export them as environment variables, which take precedence:
+```bash
+export TEST_LEARNER_EMAIL="your.learner@example.com"
+export TEST_LEARNER_PASSWORD="your-password"
+```
+Or override for a single run: `mvn clean test -Dtest.learner.password=your-password`
+
+Note a **blank** entry counts as unset - `TEST_LEARNER_PASSWORD=` warns just like a
+missing key.
+
+#### **7. Test Fails Immediately in Setup**
+```
+TimeoutException: timed out receiving message from renderer
+Failed to setup test: <testName>
+```
+`driver.get(base.url)` could not finish loading. Usually the application under test is
+slow or unreachable, not a framework fault.
+
+**Solution**: Check the site responds within Chrome's renderer timeout:
+```bash
+curl -o /dev/null -s -w "http=%{http_code} total=%{time_total}s\n" https://your-application-url.com/
+```
+A `total` above ~30s will fail every run until the environment recovers.
+
 ---
 
 ## 💡 Best Practices
 
 ### **Test Development**
 1. **Follow POM**: Keep page elements and actions in page objects
-2. **Use Meaningful Names**: Clear method and variable names
+2. **Use Meaningful Names**: Clear method and variable names, in `lowerCamelCase`
 3. **Add Logging**: Log all important actions and verifications
 4. **Handle Waits**: Use explicit waits instead of Thread.sleep()
-5. **Assertions**: Use descriptive assertion messages
+5. **Assertions**: Use descriptive assertion messages - and keep them in tests, never
+   in page objects
+6. **No Step Numbers in Page Objects**: Log the action, not its position in a flow.
+   `"Entered email"`, never `"Step 4: Entered email"` - otherwise reordering one test
+   forces edits across every page object it touches
+7. **Don't Double-Wait**: `clickElement()` and `typeText()` already wait internally;
+   calling `waitForElementClickable()` first just doubles the timeout
+8. **Let Exceptions Propagate**: Don't log-and-rethrow in page objects. `BaseTest`
+   already reports failures, attaches a screenshot, and TestNG prints the trace -
+   catching only to re-log produces the same failure three times
+9. **Promote Shared Mechanics**: If two page objects need the same technique, it
+   belongs in `BasePage` (see `switchToFrameFromRoot`), not copied into both
 
 ### **Configuration Management**
-1. **Never Commit Credentials**: Use environment variables for sensitive data
+1. **Never Commit Credentials**: `config.properties` holds only `${ENV_VAR}`
+   placeholders; `ConfigReader` resolves them at runtime and masks them in logs
 2. **Environment-Specific Configs**: Separate configs for each environment
 3. **Parameterize URLs**: Make base URLs configurable
 4. **Version Control**: Keep configs in version control (except credentials)

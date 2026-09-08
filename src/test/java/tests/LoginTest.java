@@ -3,65 +3,57 @@ package tests;
 import base.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-import pages.Login;
+import pages.LoginPage;
 import utils.ConfigReader;
 
 public class LoginTest extends BaseTest {
 
     @Test(priority = 1, description = "Verify complete login flow with valid credentials")
-    public void testCompleteLoginFlow()
-    {
-        Login loginPage = new Login();
+    public void testCompleteLoginFlow() {
 
-        // Get test data from config.properties
+        LoginPage loginPage = new LoginPage();
+
+        // Test data from config.properties
         String testEmail = ConfigReader.getProperty("test.learner.email");
         String testPassword = ConfigReader.getProperty("test.learner.password");
         String expectedHeaderText = ConfigReader.getProperty("test.learner.active.course.page.header.name");
 
-        test.info("Starting complete login flow test");
+        getTest().info("Starting complete login flow test");
 
-        try {
-            // Step 1: Click accept cookies button from home page
-            loginPage.clickOnAcceptCookies();
-            test.pass("Step 1: Successfully clicked accept cookies button from home page");
+        // Dismiss the cookie banner if it is shown
+        loginPage.clickOnAcceptCookies();
+        getTest().pass("Handled cookie consent banner on home page");
 
-            // Step 2: Click login button from home page
-            loginPage.clickLoginButtonFromHomePage();
-            test.pass("Step 1: Successfully clicked login button from home page");
+        // Open the login form from the home page
+        loginPage.clickLoginButtonFromHomePage();
+        getTest().pass("Clicked login button from home page");
 
-            // Step 3: Click login button on popup
-            loginPage.clickLoginButtonOnPopup();
-            test.pass("Step 2: Successfully clicked login button on popup");
+        // Disabled - the current website setup presents the login form directly,
+        // so the sign-up popup variant (and its iframe switch) no longer applies.
+        // loginPage.clickLoginButtonOnPopup();
 
-            // Step 4: Click continue with email
-            loginPage.clickContinueWithEmailButton();
-            test.pass("Step 3: Successfully clicked continue with email button");
+        // Choose email as the login method
+        loginPage.clickContinueWithEmailButton();
+        getTest().pass("Clicked continue with email button");
 
-            // Step 5: Enter email
-            loginPage.enterEmail(testEmail);
-            test.pass("Step 4: Successfully entered email");
+        // Supply credentials
+        loginPage.enterEmail(testEmail);
+        getTest().pass("Entered email");
 
-            // Step 6: Enter password
-            loginPage.enterPassword(testPassword);
-            test.pass("Step 5: Successfully entered password");
+        loginPage.enterPassword(testPassword);
+        getTest().pass("Entered password");
 
-            // Step 7: Click next button
-            loginPage.clickNextButton();
-            test.pass("Step 6: Successfully clicked next button");
+        // Submit and move into the My Courses view
+        loginPage.clickNextButton();
+        loginPage.switchToMyCoursesFrame();
+        getTest().pass("Submitted login form");
 
-            // Step 8: Get header text and perform assertion
-            String actualHeaderText = loginPage.getActiveCourseHeaderText();
-            Assert.assertNotNull(actualHeaderText, "Header text should not be null");
-            Assert.assertEquals(actualHeaderText, expectedHeaderText, "Header text should match expected value");
-            test.pass("Step 7: Successfully retrieved header text: " + expectedHeaderText);
+        // Verify the learner landed on the Active Courses page
+        String actualHeaderText = loginPage.getActiveCourseHeaderText();
+        loginPage.returnToMainContent();
 
-            test.pass("Complete login flow test passed successfully");
-
-        } catch (Exception e) {
-            test.fail("pages.Login flow test failed: " + e.getMessage());
-            throw e;
-        }
+        Assert.assertNotNull(actualHeaderText, "Header text should not be null");
+        Assert.assertEquals(actualHeaderText, expectedHeaderText, "Header text should match expected value");
+        getTest().pass("Verified header text: " + expectedHeaderText);
     }
-
-
 }
