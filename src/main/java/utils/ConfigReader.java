@@ -15,8 +15,34 @@ public class ConfigReader {
     private static Properties properties;
     private static String currentConfigFile = "config.properties";
 
+    /** Optional, git-ignored file holding credential values for local runs. */
+    private static final String SECRETS_FILE = "secrets.properties";
+    private static Properties secrets = new Properties();
+
     static {
         loadProperties();
+        loadSecrets();
+    }
+
+    /**
+     * Load the optional local secrets file.
+     *
+     * <p>This file is git-ignored and supplies values for the ${VAR} placeholders in
+     * the config files, so credentials never need to be committed or exported by hand.
+     * Its absence is not an error - environment variables take precedence and are the
+     * expected source in CI.</p>
+     */
+    private static void loadSecrets() {
+        try (InputStream input = ConfigReader.class.getClassLoader().getResourceAsStream(SECRETS_FILE)) {
+            if (input == null) {
+                logger.debug("No {} found on classpath - relying on environment variables", SECRETS_FILE);
+                return;
+            }
+            secrets.load(input);
+            logger.info("Loaded {} local secret(s) from {}", secrets.size(), SECRETS_FILE);
+        } catch (IOException e) {
+            logger.warn("Could not read {}: {}", SECRETS_FILE, e.getMessage());
+        }
     }
 
     /**
@@ -121,18 +147,32 @@ public class ConfigReader {
 
         while (matcher.find()) {
             String envVarName = matcher.group(1);
-            String envVarValue = System.getenv(envVarName);
+
+            // Environment wins (CI), then the local secrets file (developer machines).
+            // A blank value counts as unset - an empty password should warn, not silently
+            // resolve to "".
+            String envVarValue = blankToNull(System.getenv(envVarName));
+            String source = "environment variable";
+            if (envVarValue == null) {
+                envVarValue = blankToNull(secrets.getProperty(envVarName));
+                source = SECRETS_FILE;
+            }
 
             if (envVarValue != null) {
                 result = result.replace("${" + envVarName + "}", envVarValue);
-                logger.debug("Resolved environment variable: {} = {}", envVarName, maskSensitiveValue(envVarName, envVarValue));
+                logger.debug("Resolved {} from {}: {}", envVarName, source, maskSensitiveValue(envVarName, envVarValue));
             } else {
-                logger.warn("Environment variable not found: {}", envVarName);
-                // Keep the placeholder if environment variable is not found
+                logger.warn("Could not resolve '{}' - set it as an environment variable or add it to {}",
+                        envVarName, SECRETS_FILE);
+                // Keep the placeholder so the failure is obvious rather than silent
             }
         }
 
         return result;
+    }
+
+    private static String blankToNull(String value) {
+        return (value == null || value.trim().isEmpty()) ? null : value;
     }
 
     /**
@@ -175,6 +215,7 @@ public class ConfigReader {
     public static void reloadProperties() {
         logger.info("Reloading configuration...");
         loadProperties();
+        loadSecrets();
     }
 
     // ... (keep all your existing methods: getPropertyAsInt, getPropertyAsBoolean, etc.)

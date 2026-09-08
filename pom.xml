@@ -55,6 +55,7 @@
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <version>${testng.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <!-- ExtentReports for reporting -->
@@ -146,10 +147,9 @@
                 <version>${maven.surefire.version}</version>
                 <configuration>
                     <suiteXmlFiles>
-                        <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+                        <suiteXmlFile>testng.xml</suiteXmlFile>
                     </suiteXmlFiles>
                     <systemPropertyVariables>
-                        <log4j2.configurationFile>src/test/resources/log4j2.xml</log4j2.configurationFile>
                         <!-- Added for better locale handling -->
                         <user.language>en</user.language>
                         <user.country>GB</user.country>
@@ -171,10 +171,9 @@
                 <version>3.2.5</version>
                 <configuration>
                     <suiteXmlFiles>
-                        <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+                        <suiteXmlFile>testng.xml</suiteXmlFile>
                     </suiteXmlFiles>
                     <systemPropertyVariables>
-                        <log4j2.configurationFile>src/test/resources/log4j2.xml</log4j2.configurationFile>
                         <user.language>en</user.language>
                         <user.country>GB</user.country>
                     </systemPropertyVariables>

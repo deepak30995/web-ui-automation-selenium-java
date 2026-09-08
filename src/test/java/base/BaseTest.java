@@ -3,6 +3,8 @@ package base;
 import com.aventstack.extentreports.ExtentTest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.testng.ITestResult;
 import org.testng.annotations.*;
@@ -10,17 +12,39 @@ import utils.ConfigReader;
 import utils.ExtentReportManager;
 import utils.UnifiedDriverManager;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 /**
  * Enhanced BaseTest with environment variable support
  */
 public class BaseTest {
 
     protected WebDriver driver;
-    protected ExtentTest test;
+
+    // Held per thread so parallel tests never overwrite each other's report node
+    private static final ThreadLocal<ExtentTest> currentTest = new ThreadLocal<>();
+
     private static final Logger logger = LogManager.getLogger(BaseTest.class);
+
+    // Set once per suite, not per test method
+    private static long suiteStartTime;
+
+    /**
+     * Report node for the test running on this thread.
+     */
+    protected ExtentTest getTest() {
+        return currentTest.get();
+    }
 
     @BeforeSuite
     public void suiteSetup() {
+        suiteStartTime = System.currentTimeMillis();
+
         // Print configuration info for debugging
         ConfigReader.printConfigInfo();
 
@@ -42,20 +66,18 @@ public class BaseTest {
         logger.info("=".repeat(80));
     }
 
-    private static long suiteStartTime;
     @BeforeMethod
     public void setUp(java.lang.reflect.Method method) {
         try {
             // Initialize driver using unified manager
             driver = UnifiedDriverManager.getDriver();
 
-            suiteStartTime = System.currentTimeMillis();
             // Create extent test with environment info
             String environment = ConfigReader.getProperty("environment", "UNKNOWN");
-            test = ExtentReportManager.createTest(
+            currentTest.set(ExtentReportManager.createTest(
                     method.getName(),
                     "Test executed on " + environment + " environment"
-            );
+            ));
 
             // Navigate to base URL
             String baseUrl = ConfigReader.getProperty("base.url");
@@ -67,7 +89,7 @@ public class BaseTest {
             logger.info("Test setup completed for: {} | Environment: {} | Mode: {} | Browser: {}",
                     method.getName(), environment, executionMode, browser);
 
-            test.info(String.format("Test started: %s | Environment: %s | Mode: %s | Browser: %s",
+            getTest().info(String.format("Test started: %s | Environment: %s | Mode: %s | Browser: %s",
                     method.getName(), environment, executionMode, browser));
 
         } catch (Exception e) {
@@ -82,10 +104,15 @@ public class BaseTest {
             // Mark test status for cloud platforms
             if (result.getStatus() == ITestResult.SUCCESS) {
                 UnifiedDriverManager.markTestStatus("passed", "Test passed");
-                test.pass("Test completed successfully");
+                getTest().pass("Test completed successfully");
             } else if (result.getStatus() == ITestResult.FAILURE) {
+                // Capture evidence while the driver is still alive
+                String screenshotPath = captureScreenshot(method.getName());
+                if (screenshotPath != null) {
+                    ExtentReportManager.addScreenshot(getTest(), screenshotPath, "Failure screenshot");
+                }
                 UnifiedDriverManager.markTestStatus("failed", result.getThrowable().getMessage());
-                test.fail("Test failed: " + result.getThrowable().getMessage());
+                getTest().fail("Test failed: " + result.getThrowable().getMessage());
             }
 
             // Quit driver
@@ -97,6 +124,35 @@ public class BaseTest {
 
         } catch (Exception e) {
             logger.error("Error in test teardown: {}", e.getMessage());
+        } finally {
+            currentTest.remove();
+        }
+    }
+
+    /**
+     * Saves a screenshot of the current browser state.
+     * @return absolute path to the saved file, or null if the capture failed
+     */
+    private String captureScreenshot(String testName) {
+        if (driver == null) {
+            return null;
+        }
+        try {
+            String screenshotDir = ConfigReader.getProperty("screenshots.path", "test-output/screenshots");
+            Path directory = Paths.get(screenshotDir);
+            Files.createDirectories(directory);
+
+            String timestamp = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss").format(new Date());
+            File source = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+            Path target = directory.resolve(testName + "_" + timestamp + ".png");
+
+            Files.copy(source.toPath(), target);
+            logger.info("Failure screenshot saved: {}", target.toAbsolutePath());
+            return target.toAbsolutePath().toString();
+
+        } catch (Exception e) {
+            logger.warn("Could not capture failure screenshot: {}", e.getMessage());
+            return null;
         }
     }
 
@@ -110,7 +166,6 @@ public class BaseTest {
             String reportPath = ExtentReportManager.getReportPath();
             String absoluteReportPath = ExtentReportManager.getAbsoluteReportPath();
 
-            // Your excellent logging format (keep this!)
             logger.info("=".repeat(80));
             logger.info("TEST SUITE COMPLETED");
             logger.info("Environment: {}", ConfigReader.getProperty("environment", "UNKNOWN"));
@@ -133,7 +188,7 @@ public class BaseTest {
             }
 
             // Additional useful information
-            logger.info("Total execution time: {} ms", System.currentTimeMillis() - suiteStartTime);
+            logger.info("Total suite execution time: {} ms", System.currentTimeMillis() - suiteStartTime);
             logger.info("Java Version: {}", System.getProperty("java.version"));
             logger.info("OS: {} {}", System.getProperty("os.name"), System.getProperty("os.version"));
             logger.info("=".repeat(80));

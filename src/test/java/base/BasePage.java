@@ -328,6 +328,24 @@ public abstract class BasePage{
     }
 
     /**
+     * Switch to a frame starting from the top-level document.
+     *
+     * <p>Switching into a frame is resolved relative to the current browsing context,
+     * so a page object that is already inside a frame cannot reach another one - or
+     * re-enter its own. Returning to the default content first makes frame entry
+     * position-independent, and therefore safe to call from any step of a flow.</p>
+     *
+     * <p>Prefer this over {@link #switchToFrame(WebElement)} whenever more than one
+     * method in a flow needs the same frame.</p>
+     *
+     * @param frameElement Frame WebElement, located from the top-level document
+     */
+    protected void switchToFrameFromRoot(WebElement frameElement) {
+        switchToDefaultContent();
+        switchToFrame(frameElement);
+    }
+
+    /**
      * Switch to default content
      */
     protected void switchToDefaultContent() {
