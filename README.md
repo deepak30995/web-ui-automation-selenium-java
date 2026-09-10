@@ -427,8 +427,8 @@ execution.mode=local
 # Browser selection
 browser=chrome
 
-# Application URL (can be changed per requirement)
-base.url=https://your-application-url.com/
+# Application URL - resolved from the environment or secrets.properties
+base.url=${BASE_URL}
 
 # Timeouts (seconds)
 implicit.wait=10
@@ -440,11 +440,11 @@ test.learner.email=${TEST_LEARNER_EMAIL}
 test.learner.password=${TEST_LEARNER_PASSWORD}
 ```
 
-### **Test Credentials**
+### **Test Credentials & Application URL**
 
-Credentials are **never stored in the repository**. `config.properties` holds only
-`${...}` placeholders, which `ConfigReader` resolves at runtime from one of two
-sources.
+Credentials **and the application URL** are **never stored in the repository**. The
+`config*.properties` files hold only `${...}` placeholders, which `ConfigReader`
+resolves at runtime from one of two sources.
 
 **Resolution order:** environment variable → `secrets.properties` → unresolved (warns)
 
@@ -460,8 +460,9 @@ cp src/main/resources/secrets.properties.example src/main/resources/secrets.prop
 Then fill it in:
 
 ```properties
-TEST_LEARNER_EMAIL=your.learner@example.com
-TEST_LEARNER_PASSWORD=your-password
+TEST_LEARNER_EMAIL=<learner account email>
+TEST_LEARNER_PASSWORD=<learner account password>
+BASE_URL=<application URL under test>
 ```
 
 `secrets.properties` is **git-ignored**; only the `.example` template is committed.
@@ -475,8 +476,9 @@ Keys match the `${PLACEHOLDER}` names used in the config files.
 Environment variables take precedence over the file, so CI needs no secrets file:
 
 ```bash
-export TEST_LEARNER_EMAIL="your.learner@example.com"
-export TEST_LEARNER_PASSWORD="your-password"
+export TEST_LEARNER_EMAIL="<learner account email>"
+export TEST_LEARNER_PASSWORD="<learner account password>"
+export BASE_URL="<application URL under test>"
 ```
 
 A single run can also override any property directly:
@@ -497,14 +499,43 @@ WARN  utils.ConfigReader - Could not resolve 'TEST_LEARNER_PASSWORD' - set it as
 
 Credential values are masked as `***MASKED***` in all log output.
 
-### **Changing Test URL**
-```bash
-# Option 1: Edit config.properties
-# Update: base.url=https://new-url.com
+### **Application URL**
 
-# Option 2: Pass at runtime
-mvn clean test -Dbase.url=https://new-url.com
+No application URL is stored anywhere in this repository. Every one of the seven
+`config*.properties` files declares the same placeholder:
+
+```properties
+base.url=${BASE_URL}
 ```
+
+`ConfigReader` substitutes `${BASE_URL}` at runtime, so the URL the tests actually hit
+comes entirely from your own machine or CI environment.
+
+**Where the value comes from**, highest precedence first:
+
+| # | Source | How to set it |
+|---|--------|---------------|
+| 1 | Maven / JVM property | `mvn clean test -Dbase.url=<url>` |
+| 2 | Environment variable | `export BASE_URL=<url>` |
+| 3 | `secrets.properties` | `BASE_URL=<url>` (git-ignored) |
+
+**Who reads it:**
+
+| Class | Purpose |
+|-------|---------|
+| `BaseTest` | `driver.get(baseUrl)` - the only class that navigates |
+| `ConfigReader` | Logs it at suite start via `printConfigInfo()` |
+| `ExtentReportManager` | Records it in the report's System Info panel |
+
+The URL in use is printed at the start of every run, so check the console or
+`test-output/logs/automation.log` to confirm which environment you are hitting:
+
+```
+[INFO] utils.ConfigReader - Base URL: <resolved value>
+```
+
+> Because no URL is committed, a fresh clone **cannot run tests until `BASE_URL` is
+> set**. This is deliberate - see Test Credentials & Application URL above.
 
 ---
 
@@ -729,12 +760,13 @@ Error: SE_EVENT_BUS_HOST not set
 
 **Solution**: Already fixed in `docker-compose.yml` with environment variables
 
-#### **6. Login Fails with an Unresolved Credential Placeholder**
+#### **6. Unresolved Placeholder (Credentials or Base URL)**
 ```
 WARN  utils.ConfigReader - Environment variable not found: TEST_LEARNER_PASSWORD
 ```
 The literal string `${TEST_LEARNER_PASSWORD}` gets typed into the password field and
-login fails.
+login fails. An unset `BASE_URL` fails the same way - `driver.get("${BASE_URL}")`
+throws an invalid-argument error during setup.
 
 **Solution**: Create the git-ignored secrets file and fill in the values:
 ```bash
@@ -742,8 +774,9 @@ cp src/main/resources/secrets.properties.example src/main/resources/secrets.prop
 ```
 Or export them as environment variables, which take precedence:
 ```bash
-export TEST_LEARNER_EMAIL="your.learner@example.com"
-export TEST_LEARNER_PASSWORD="your-password"
+export TEST_LEARNER_EMAIL="<learner account email>"
+export TEST_LEARNER_PASSWORD="<learner account password>"
+export BASE_URL="<application URL under test>"
 ```
 Or override for a single run: `mvn clean test -Dtest.learner.password=your-password`
 
@@ -760,7 +793,7 @@ slow or unreachable, not a framework fault.
 
 **Solution**: Check the site responds within Chrome's renderer timeout:
 ```bash
-curl -o /dev/null -s -w "http=%{http_code} total=%{time_total}s\n" https://your-application-url.com/
+curl -o /dev/null -s -w "http=%{http_code} total=%{time_total}s\n" "$BASE_URL"
 ```
 A `total` above ~30s will fail every run until the environment recovers.
 
