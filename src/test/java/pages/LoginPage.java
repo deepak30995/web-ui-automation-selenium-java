@@ -37,7 +37,7 @@ public class LoginPage extends BasePage {
     @FindBy(id = "collabIframe")
     private WebElement myCoursesIframe;
 
-    @FindBy(xpath = "//div[@id='mycourses']/h3")
+    @FindBy(xpath = "//h5[contains(@class,'text-title5  text-black font-semibold')]")
     private WebElement activeCourseHeaderText;
 
     public LoginPage() {
@@ -109,6 +109,7 @@ public class LoginPage extends BasePage {
     }
 
     public String getActiveCourseHeaderText() {
+        switchToDefaultContent();
         String headerText = getText(activeCourseHeaderText);
         logger.info("Retrieved 'Active Courses' header text: {}", headerText);
         return headerText;

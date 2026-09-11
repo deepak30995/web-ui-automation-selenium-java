@@ -45,12 +45,11 @@ public class LoginTest extends BaseTest {
 
         // Submit and move into the My Courses view
         loginPage.clickNextButton();
-        loginPage.switchToMyCoursesFrame();
+        //loginPage.switchToMyCoursesFrame();
         getTest().pass("Submitted login form");
 
         // Verify the learner landed on the Active Courses page
         String actualHeaderText = loginPage.getActiveCourseHeaderText();
-        loginPage.returnToMainContent();
 
         Assert.assertNotNull(actualHeaderText, "Header text should not be null");
         Assert.assertEquals(actualHeaderText, expectedHeaderText, "Header text should match expected value");
