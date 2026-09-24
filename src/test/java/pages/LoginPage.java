@@ -46,8 +46,11 @@ public class LoginPage extends BasePage {
 
     /**
      * Dismisses the cookie consent banner when it is shown.
-     * The banner is not always rendered (varies by session/region), so its absence
-     * is not a failure - only a genuine click problem is worth reporting.
+     *
+     * <p>The banner is rendered only when the corresponding key is enabled on the
+     * organization record, so it is legitimately absent for some orgs. Its absence is
+     * therefore expected behaviour, not drift - only a genuine click problem is worth
+     * reporting.</p>
      */
     public void clickOnAcceptCookies() {
         if (!isElementDisplayed(acceptCookiesButton)) {
