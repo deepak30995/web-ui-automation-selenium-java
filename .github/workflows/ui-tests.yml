@@ -1,0 +1,83 @@
+name: UI Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+# Needed so the diagnosis can be posted back onto the pull request
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Declared at job level so the diagnose step's `if` can test whether it is set;
+    # a step-level env is not visible to that step's own condition.
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run UI tests
+        id: tests
+        continue-on-error: true          # later steps must run so failures get diagnosed
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_LEARNER_EMAIL: ${{ secrets.TEST_LEARNER_EMAIL }}
+          TEST_LEARNER_PASSWORD: ${{ secrets.TEST_LEARNER_PASSWORD }}
+        run: mvn -B clean test -Dheadless=true
+
+      - name: Upload failure evidence
+        if: steps.tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-evidence
+          path: |
+            test-output/failures/
+            test-output/screenshots/
+            test-output/logs/
+            target/surefire-reports/
+          retention-days: 14
+
+      - name: Diagnose failure
+        id: diagnose
+        # Skipped automatically when the API key is not configured, so the
+        # workflow still works as plain CI until that secret exists.
+        if: steps.tests.outcome == 'failure' && env.ANTHROPIC_API_KEY != ''
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          ./analyze-failure.sh > /dev/null
+          cp "$(ls -t test-output/failures/*_diagnosis.md | head -1)" diagnosis.md
+
+      - name: Publish diagnosis
+        if: steps.diagnose.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "## Failure diagnosis"
+            echo ""
+            cat diagnosis.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -n "${{ github.event.pull_request.number }}" ]; then
+            gh pr comment "${{ github.event.pull_request.number }}" --body-file diagnosis.md
+          fi
+
+      - name: Fail the job if tests failed
+        if: steps.tests.outcome == 'failure'
+        run: |
+          echo "UI tests failed - see the diagnosis above and the failure-evidence artifact."
+          exit 1

@@ -57,8 +57,8 @@ public class ExtentReportManager {
 
             // Configure reporter settings
             try {
-                sparkReporter.config().setDocumentTitle("Selenium Automation Test Report");
-                sparkReporter.config().setReportName("Graphy Website UI Test Execution Report");
+                sparkReporter.config().setDocumentTitle("Test Results | Web UI");
+                sparkReporter.config().setReportName("Web Automation Results");
                 sparkReporter.config().setTheme(Theme.STANDARD);
                 sparkReporter.config().setTimeStampFormat("dd-MM-yyyy HH:mm:ss");
 
