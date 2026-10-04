@@ -10,6 +10,7 @@ import org.testng.ITestResult;
 import org.testng.annotations.*;
 import utils.ConfigReader;
 import utils.ExtentReportManager;
+import utils.FailureReporter;
 import utils.UnifiedDriverManager;
 
 import java.io.File;
@@ -111,6 +112,8 @@ public class BaseTest {
                 if (screenshotPath != null) {
                     ExtentReportManager.addScreenshot(getTest(), screenshotPath, "Failure screenshot");
                 }
+                FailureReporter.capture(driver, method.getName(), result.getThrowable(), screenshotPath);
+
                 UnifiedDriverManager.markTestStatus("failed", result.getThrowable().getMessage());
                 getTest().fail("Test failed: " + result.getThrowable().getMessage());
             }
