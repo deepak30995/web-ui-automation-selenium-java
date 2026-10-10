@@ -653,6 +653,45 @@ Watch tests execute in real-time:
 
 ---
 
+## 🤖 Continuous Integration
+
+`.github/workflows/ui-tests.yml` runs the suite headless on every pull request into
+`main`, and on demand via **Actions → UI Tests → Run workflow**.
+
+When a test fails the workflow:
+
+1. Uploads the failure bundles, screenshots, logs and surefire reports as a
+   **failure-evidence** artifact (kept 14 days)
+2. Runs `./analyze-failure.sh` to diagnose the newest failure
+3. Posts the diagnosis as a pull request comment and in the job summary
+
+### **Required Secrets**
+
+Add these under **Settings → Secrets and variables → Actions**. They are stored
+encrypted by GitHub and injected as environment variables at runtime - nothing
+credential-related is ever committed.
+
+| Secret | Purpose |
+|--------|---------|
+| `BASE_URL` | Application under test |
+| `TEST_LEARNER_EMAIL` | Learner account email |
+| `TEST_LEARNER_PASSWORD` | Learner account password |
+| `ANTHROPIC_API_KEY` | Only needed for the diagnosis step |
+
+This works because `ConfigReader` resolves placeholders in the same order everywhere:
+
+```
+-D property  →  environment variable  →  secrets.properties (git-ignored)
+```
+
+CI takes the environment-variable path; local runs take the file. Same code, two
+sources, and no credential in the repository either way.
+
+The diagnosis step skips itself automatically when `ANTHROPIC_API_KEY` is absent, so
+the workflow is usable as plain CI before you add that key.
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -680,8 +719,13 @@ UIAutomationSelenium/
 ├── test-output/
 │   ├── extent-reports/                   # HTML reports
 │   ├── screenshots/                      # Failure screenshots
+│   ├── failures/                         # Failure bundles (json + DOM), newest 5
 │   ├── logs/                             # Execution logs
 │   └── allure-results/                   # Allure data
+├── .github/workflows/                    # CI pipeline
+│   └── ui-tests.yml                      # Headless run + failure diagnosis
+├── CLAUDE.md                             # Project context for Claude Code
+├── analyze-failure.sh                    # Diagnose the newest failure bundle
 ├── testng.xml                            # TestNG suite (project root)
 ├── docker-compose.yml                    # Docker Grid config
 ├── pom.xml                              # Maven dependencies
