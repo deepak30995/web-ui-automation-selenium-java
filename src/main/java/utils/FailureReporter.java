@@ -47,7 +47,16 @@ public final class FailureReporter {
     private static final Pattern JSON_LOCATOR =
             Pattern.compile("\\{\"method\":\"([^\"]+)\",\"selector\":\"([^\"]+)\"}");
 
-    /** PageFactory's rendered locator, e.g. Proxy element for: ... 'By.id: acceptCookiesBtn' */
+    /**
+     * PageFactory's rendered locator wrapped in quotes and followed by the wait suffix,
+     * e.g. Proxy element for: ... 'By.xpath: //button[@title='Continue with email']' (tried for 30...
+     * Anchored on the closing quote before "(tried for" so values containing their own
+     * apostrophes survive intact.
+     */
+    private static final Pattern BY_QUOTED_LOCATOR =
+            Pattern.compile("By\\.(\\w+):\\s*(.+?)'\\s*\\(tried for");
+
+    /** Bare fallback, e.g. By.id: acceptCookiesBtn */
     private static final Pattern BY_LOCATOR =
             Pattern.compile("By\\.(\\w+):\\s*([^'\\n]+?)(?:'|\\s*\\(|$)");
 
@@ -149,6 +158,13 @@ public final class FailureReporter {
         if (json.find()) {
             node.put("strategy", json.group(1));
             node.put("value", json.group(2));
+            return node;
+        }
+
+        Matcher quoted = BY_QUOTED_LOCATOR.matcher(message);
+        if (quoted.find()) {
+            node.put("strategy", quoted.group(1));
+            node.put("value", quoted.group(2).trim());
             return node;
         }
 
