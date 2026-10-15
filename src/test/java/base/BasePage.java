@@ -11,6 +11,7 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.interactions.Actions;
+import utils.ConfigReader;
 import utils.UnifiedDriverManager;
 
 import java.time.Duration;
@@ -33,7 +34,9 @@ public abstract class BasePage{
      */
     public BasePage() {
         this.driver = UnifiedDriverManager.getCurrentDriver();
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+        // Read from config so slow environments can be accommodated without a code change
+        this.wait = new WebDriverWait(driver,
+                Duration.ofSeconds(ConfigReader.getPropertyAsInt("explicit.wait", 15)));
         this.actions = new Actions(driver);
         this.jsExecutor = (JavascriptExecutor) driver;
         PageFactory.initElements(driver, this);
@@ -301,11 +304,17 @@ public abstract class BasePage{
     }
 
     /**
-     * Switch to frame by index
+     * Switch to frame by index, waiting for the frame to become available.
+     *
+     * <p>All three overloads wait explicitly rather than switching immediately. A frame
+     * belonging to a page that is still loading would otherwise only get the short
+     * implicit wait, surfacing a slow page as a confusing "no such element" on the
+     * frame itself.</p>
+     *
      * @param frameIndex Frame index
      */
     protected void switchToFrame(int frameIndex) {
-        driver.switchTo().frame(frameIndex);
+        wait.until(ExpectedConditions.frameToBeAvailableAndSwitchToIt(frameIndex));
         logger.info("Switched to frame with index: {}", frameIndex);
     }
 
@@ -314,7 +323,7 @@ public abstract class BasePage{
      * @param frameNameOrId Frame name or id
      */
     protected void switchToFrame(String frameNameOrId) {
-        driver.switchTo().frame(frameNameOrId);
+        wait.until(ExpectedConditions.frameToBeAvailableAndSwitchToIt(frameNameOrId));
         logger.info("Switched to frame: {}", frameNameOrId);
     }
 
@@ -323,7 +332,7 @@ public abstract class BasePage{
      * @param frameElement Frame WebElement
      */
     protected void switchToFrame(WebElement frameElement) {
-        driver.switchTo().frame(frameElement);
+        wait.until(ExpectedConditions.frameToBeAvailableAndSwitchToIt(frameElement));
         logger.info("Switched to frame element");
     }
 
