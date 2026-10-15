@@ -19,7 +19,7 @@ public class LoginPage extends BasePage {
     @FindBy(id = "microfe-popup-login")
     private WebElement loginPopupIframe;
 
-    @FindBy(xpath = "//div[@class='signup_lable_nr1k1']//strong[text()='Log in']")
+    @FindBy(xpath = "//strong[text()='Log in']")
     private WebElement loginButtonOnCreateAccountPopup;
 
     @FindBy(xpath = "//button[@title='Continue with email']")
@@ -37,7 +37,7 @@ public class LoginPage extends BasePage {
     @FindBy(id = "collabIframe")
     private WebElement myCoursesIframe;
 
-    @FindBy(xpath = "//h5[contains(@class,'text-title5  text-black font-semibold')]")
+    @FindBy(xpath = "//h5[text()='Courses']")
     private WebElement activeCourseHeaderText;
 
     public LoginPage() {
