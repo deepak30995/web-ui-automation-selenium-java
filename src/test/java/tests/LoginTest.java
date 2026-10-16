@@ -2,16 +2,27 @@ package tests;
 
 import base.BaseTest;
 import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import pages.LoginPage;
 import utils.ConfigReader;
 
 public class LoginTest extends BaseTest {
 
-    @Test(priority = 1, description = "Verify complete login flow with valid credentials")
-    public void testCompleteLoginFlow() {
+    private LoginPage loginPage;
 
-        LoginPage loginPage = new LoginPage();
+    /**
+     * Page objects capture the driver in their constructor, so they can only be built
+     * once BaseTest.setUp has created one. A field initializer would run during class
+     * construction, before any driver exists.
+     */
+    @BeforeMethod(dependsOnMethods = "setUp")
+    public void initPages() {
+        loginPage = new LoginPage();
+    }
+
+    @Test(priority = 1, description = "Verify complete login flow with valid credentials", enabled = true)
+    public void completesLoginWithValidCredentials() {
 
         // Test data from config.properties
         String testEmail = ConfigReader.getProperty("test.learner.email");
@@ -54,5 +65,39 @@ public class LoginTest extends BaseTest {
         Assert.assertNotNull(actualHeaderText, "Header text should not be null");
         Assert.assertEquals(actualHeaderText, expectedHeaderText, "Header text should match expected value");
         getTest().pass("Verified header text: " + expectedHeaderText);
+    }
+
+
+    @Test(priority = 2, description = "Verify an error is shown for incorrect email and password credentials that do not match an account")
+    public void showsErrorForIncorrectEmailAndPassword()
+    {
+        String toastMessage = ConfigReader.getProperty("incorrect.email.and.incorrect.password.error.toast.message");
+        String incorrectEmail = ConfigReader.getProperty("test.incorrect.email");
+        loginPage.clickOnAcceptCookies();
+        loginPage.clickLoginButtonFromHomePage();
+        loginPage.clickContinueWithEmailButton();
+        loginPage.enterEmail(incorrectEmail);
+        loginPage.enterPassword("IncorrectPassword");
+        loginPage.clickNextButton();
+
+        String errorMessage = loginPage.getErrorMessageForIncorrectCredentials();
+        Assert.assertEquals(errorMessage, toastMessage);
+    }
+
+    @Test(priority = 3, description = "Verify an error is shown for correct email and incorrect password")
+    public void showsErrorForIncorrectPassword()
+    {
+
+        String toastMessage = ConfigReader.getProperty("correct.email.and.incorrect.password.error.toast.message");
+        String correctEmail = ConfigReader.getProperty("test.learner.email");
+        loginPage.clickOnAcceptCookies();
+        loginPage.clickLoginButtonFromHomePage();
+        loginPage.clickContinueWithEmailButton();
+        loginPage.enterEmail(correctEmail);
+        loginPage.enterPassword("IncorrectPassword");
+        loginPage.clickNextButton();
+
+        String errorMessage = loginPage.getErrorMessageForIncorrectCredentials();
+        Assert.assertEquals(errorMessage, toastMessage);
     }
 }
