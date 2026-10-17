@@ -634,6 +634,25 @@ When a test fails the workflow:
 2. Runs `./analyze-failure.sh` to diagnose the newest failure
 3. Posts the diagnosis as a pull request comment and in the job summary
 
+### **Proposing a Fix**
+
+```bash
+./fix-failure.sh
+```
+
+Diagnoses the newest failure, then acts **only** on a `STALE_LOCATOR` verdict - the one
+category where changing our code is the right answer. Timing, environment, test-data and
+product-bug verdicts exit without touching the repository and point you at the diagnosis.
+
+When it does act it changes a single `@FindBy` locator, verifies the replacement exists
+in the captured DOM, then **re-runs the failing test**. Only a passing run opens a
+**pull request** - if the test still fails, no PR is created and the branch is left for
+you to inspect. It never merges and never commits to `main`.
+
+This gate matters: of every failure seen while building this suite, none were stale
+locators. An ungated fixer would have rewritten locators for all of them and produced
+green tests that verified nothing.
+
 ### **Required Secrets**
 
 Add these under **Settings → Secrets and variables → Actions**. They are stored

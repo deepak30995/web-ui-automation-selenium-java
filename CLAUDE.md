@@ -9,6 +9,7 @@ Maven, ExtentReports + Allure, Log4j2.
 mvn clean test                      # full suite (testng.xml at project root)
 mvn clean test -Dtest.env=docker    # pick a config-<env>.properties
 ./analyze-failure.sh                # diagnose the newest failure bundle
+./fix-failure.sh                    # propose a fix (STALE_LOCATOR verdicts only)
 ```
 
 ## Layout
@@ -112,6 +113,11 @@ Categories, drawn on the line "is there something to fix in our code?":
 | **C TEST_DATA_OR_ENV** | Wrong account/env/config, or the site was slow or down | No |
 | **D PRODUCT_BUG** | The application genuinely misbehaved | No — report it |
 | **E UNKNOWN** | Evidence insufficient | No — say so |
+
+`./fix-failure.sh` acts only on an **A STALE_LOCATOR** verdict. Every other category
+exits without touching the repository, because changing the test would hide a real
+problem rather than fix one. When it does act it re-runs the failing test and opens a
+pull request only if that test now passes - never a merge, never a direct commit to main.
 
 Hard rules, because a wrong fix produces a passing test that verifies the wrong thing:
 
