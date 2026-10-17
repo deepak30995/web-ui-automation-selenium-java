@@ -1,7 +1,17 @@
 name: UI Tests
 
 on:
+  # Manual runs choose the environment: staging before a deploy, prod after it
   workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to test
+        type: choice
+        options:
+          - staging
+          - prod
+        default: staging
+  # Pull requests always run against staging - prod is never automatic
   pull_request:
     branches: [main]
 
@@ -19,6 +29,8 @@ jobs:
     # a step-level env is not visible to that step's own condition.
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Falls back to staging for pull_request runs, where no input is supplied
+      TARGET_ENV: ${{ github.event.inputs.target || 'staging' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -30,6 +42,9 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Show target environment
+        run: echo "Running against **$TARGET_ENV**" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run UI tests
         id: tests
         continue-on-error: true          # later steps must run so failures get diagnosed
@@ -38,8 +53,13 @@ jobs:
           STAGING_USER_EMAIL: ${{ secrets.STAGING_USER_EMAIL }}
           STAGING_USER_PASSWORD: ${{ secrets.STAGING_USER_PASSWORD }}
           STAGING_INCORRECT_EMAIL: ${{ secrets.STAGING_INCORRECT_EMAIL }}
-        # CI runs against staging only; prod is deliberately a manual, local decision
-        run: mvn -B clean test -Dheadless=true -Dtarget.env=staging
+          PROD_BASE_URL: ${{ secrets.PROD_BASE_URL }}
+          PROD_USER_EMAIL: ${{ secrets.PROD_USER_EMAIL }}
+          PROD_USER_PASSWORD: ${{ secrets.PROD_USER_PASSWORD }}
+          PROD_INCORRECT_EMAIL: ${{ secrets.PROD_INCORRECT_EMAIL }}
+        # Both credential sets are passed; ConfigReader resolves whichever matches
+        # target.env, so only the selected environment is ever reached.
+        run: mvn -B clean test -Dheadless=true -Dtarget.env=$TARGET_ENV
 
       - name: Upload failure evidence
         if: steps.tests.outcome == 'failure'

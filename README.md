@@ -490,8 +490,23 @@ Platform keys are only needed for the platform you actually run against.
 #### CI
 
 Environment variables take precedence over the file, so CI needs no secrets file - set
-them as repository secrets instead. The workflow runs against staging only; pointing a
-run at prod is a deliberate local decision.
+them as repository secrets instead.
+
+**Pull requests always run against staging.** To test prod - typically after a deploy -
+trigger the workflow manually: **Actions -> UI Tests -> Run workflow**, then pick `prod`
+from the environment dropdown. Prod is never reached automatically.
+
+Required repository secrets:
+
+| Staging | Prod | Other |
+|---------|------|-------|
+| `STAGING_BASE_URL` | `PROD_BASE_URL` | `ANTHROPIC_API_KEY` (diagnosis step) |
+| `STAGING_USER_EMAIL` | `PROD_USER_EMAIL` | |
+| `STAGING_USER_PASSWORD` | `PROD_USER_PASSWORD` | |
+| `STAGING_INCORRECT_EMAIL` | `PROD_INCORRECT_EMAIL` | |
+
+Both sets are passed to every run; `ConfigReader` resolves only the ones matching the
+selected `target.env`, so the unselected environment is never reached.
 
 #### When nothing is set
 
