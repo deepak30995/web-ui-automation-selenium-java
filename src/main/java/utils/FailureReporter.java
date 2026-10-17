@@ -119,7 +119,8 @@ public final class FailureReporter {
         node.put("executionMode", ConfigReader.getProperty("execution.mode", "local"));
         node.put("browser", ConfigReader.getProperty("browser", "chrome"));
         node.put("configFile", ConfigReader.getCurrentConfigFile());
-        node.put("baseUrl", ConfigReader.getProperty("base.url", "unknown"));
+        node.put("targetEnv", ConfigReader.getProperty("target.env", "staging"));
+        node.put("baseUrl", ConfigReader.getBaseUrl());
         return node;
     }
 

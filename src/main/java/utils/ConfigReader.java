@@ -202,6 +202,44 @@ public class ConfigReader {
     }
 
     /**
+     * Resolve a property for the active target environment.
+     *
+     * <p>Target environment ({@code staging}, {@code prod}) is a separate axis from
+     * {@code test.env}, which selects where the browser runs. Keeping them apart means
+     * any site can be exercised from any execution platform.</p>
+     *
+     * <p>Looks up {@code <baseKey>.<target.env>}, so {@code getForTarget("test.user.email")}
+     * reads {@code test.user.email.staging} by default. Selected per run with
+     * {@code -Dtarget.env=prod}; defaults to {@code staging} so a mistyped or absent
+     * value can never silently point a run at production.</p>
+     *
+     * @param baseKey property name without the environment suffix
+     * @return the resolved value, or null when nothing is configured for this target
+     */
+    public static String getForTarget(String baseKey) {
+        String target = getTargetEnv();
+        String value = getProperty(baseKey + "." + target);
+        if (value == null) {
+            logger.error("No {}.{} configured - check target.env", baseKey, target);
+        }
+        return value;
+    }
+
+    /**
+     * @return the active target environment, defaulting to staging
+     */
+    public static String getTargetEnv() {
+        return getProperty("target.env", "staging");
+    }
+
+    /**
+     * @return the application URL for the active target environment
+     */
+    public static String getBaseUrl() {
+        return getForTarget("base.url");
+    }
+
+    /**
      * Get current configuration file name
      * @return Current config file name
      */
@@ -255,7 +293,8 @@ public class ConfigReader {
         logger.info("Test environment: {}", System.getProperty("test.env", "default"));
         logger.info("Execution mode: {}", getProperty("execution.mode", "unknown"));
         logger.info("Browser: {}", getProperty("browser", "unknown"));
-        logger.info("Base URL: {}", getProperty("base.url", "unknown"));
+        logger.info("Target env: {}", getTargetEnv());
+        logger.info("Base URL: {}", getBaseUrl());
         logger.info("=== End Configuration Info ===");
     }
 }

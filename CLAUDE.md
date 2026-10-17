@@ -74,11 +74,11 @@ resolved by `ConfigReader` in this order:
 
 **`-D` JVM property → environment variable → `secrets.properties` (git-ignored)**
 
-Keys: `BASE_URL`, `TEST_LEARNER_EMAIL`, `TEST_LEARNER_PASSWORD`. A blank value counts as
+Keys: `BASE_URL`, `STAGING_USER_EMAIL`, `STAGING_USER_PASSWORD`. A blank value counts as
 unset and logs a warning rather than resolving to an empty string.
 
-The suite needs a **learner** account. A creator/admin account logs in successfully but
-lands on the business dashboard, where the learner locators do not exist — a failure
+The suite needs a **user** account. A creator/admin account logs in successfully but
+lands on the business dashboard, where the user locators do not exist — a failure
 that looks like stale locators but is actually wrong test data.
 
 ## Diagnosing failures

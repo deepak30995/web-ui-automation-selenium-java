@@ -68,7 +68,7 @@ wrong thing, which is worse than a failing one:
 - Never propose a locator change for categories B, C, D or E.
 - Never propose changing the expected value of an assertion to match what was observed.
 - If the page source shows a different application area than the test targets (for
-  example an admin dashboard where a learner view was expected), that is category C,
+  example an admin dashboard where a user view was expected), that is category C,
   not a locator problem.
 - Prefer stable locators (id, data-* attributes) over class lists or deep XPath.
 - When evidence is thin, answer UNKNOWN. That is a useful result.

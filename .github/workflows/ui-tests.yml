@@ -34,10 +34,12 @@ jobs:
         id: tests
         continue-on-error: true          # later steps must run so failures get diagnosed
         env:
-          BASE_URL: ${{ secrets.BASE_URL }}
-          TEST_LEARNER_EMAIL: ${{ secrets.TEST_LEARNER_EMAIL }}
-          TEST_LEARNER_PASSWORD: ${{ secrets.TEST_LEARNER_PASSWORD }}
-        run: mvn -B clean test -Dheadless=true
+          STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+          STAGING_USER_EMAIL: ${{ secrets.STAGING_USER_EMAIL }}
+          STAGING_USER_PASSWORD: ${{ secrets.STAGING_USER_PASSWORD }}
+          STAGING_INCORRECT_EMAIL: ${{ secrets.STAGING_INCORRECT_EMAIL }}
+        # CI runs against staging only; prod is deliberately a manual, local decision
+        run: mvn -B clean test -Dheadless=true -Dtarget.env=staging
 
       - name: Upload failure evidence
         if: steps.tests.outcome == 'failure'

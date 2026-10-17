@@ -21,13 +21,13 @@ public class LoginTest extends BaseTest {
         loginPage = new LoginPage();
     }
 
-    @Test(priority = 1, description = "Verify complete login flow with valid credentials", enabled = true)
+    @Test(priority = 1, description = "Verify complete login flow with valid credentials", enabled = true, groups = "login")
     public void completesLoginWithValidCredentials() {
 
         // Test data from config.properties
-        String testEmail = ConfigReader.getProperty("test.learner.email");
-        String testPassword = ConfigReader.getProperty("test.learner.password");
-        String expectedHeaderText = ConfigReader.getProperty("test.learner.active.course.page.header.name");
+        String testEmail = ConfigReader.getForTarget("test.user.email");
+        String testPassword = ConfigReader.getForTarget("test.user.password");
+        String expectedHeaderText = ConfigReader.getProperty("test.user.active.course.page.header.name");
 
         getTest().info("Starting complete login flow test");
 
@@ -59,7 +59,7 @@ public class LoginTest extends BaseTest {
         //loginPage.switchToMyCoursesFrame();
         getTest().pass("Submitted login form");
 
-        // Verify the learner landed on the Active Courses page
+        // Verify the user landed on the Active Courses page
         String actualHeaderText = loginPage.getActiveCourseHeaderText();
 
         Assert.assertNotNull(actualHeaderText, "Header text should not be null");
@@ -68,11 +68,11 @@ public class LoginTest extends BaseTest {
     }
 
 
-    @Test(priority = 2, description = "Verify an error is shown for incorrect email and password credentials that do not match an account")
+    @Test(priority = 2, description = "Verify an error is shown for incorrect email and password credentials that do not match an account", groups = "login")
     public void showsErrorForIncorrectEmailAndPassword()
     {
         String toastMessage = ConfigReader.getProperty("incorrect.email.and.incorrect.password.error.toast.message");
-        String incorrectEmail = ConfigReader.getProperty("test.incorrect.email");
+        String incorrectEmail = ConfigReader.getForTarget("test.incorrect.email");
         loginPage.clickOnAcceptCookies();
         loginPage.clickLoginButtonFromHomePage();
         loginPage.clickContinueWithEmailButton();
@@ -84,12 +84,12 @@ public class LoginTest extends BaseTest {
         Assert.assertEquals(errorMessage, toastMessage);
     }
 
-    @Test(priority = 3, description = "Verify an error is shown for correct email and incorrect password")
+    @Test(priority = 3, description = "Verify an error is shown for correct email and incorrect password", groups = "login")
     public void showsErrorForIncorrectPassword()
     {
 
         String toastMessage = ConfigReader.getProperty("correct.email.and.incorrect.password.error.toast.message");
-        String correctEmail = ConfigReader.getProperty("test.learner.email");
+        String correctEmail = ConfigReader.getForTarget("test.user.email");
         loginPage.clickOnAcceptCookies();
         loginPage.clickLoginButtonFromHomePage();
         loginPage.clickContinueWithEmailButton();
