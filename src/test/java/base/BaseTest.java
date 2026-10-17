@@ -81,7 +81,7 @@ public class BaseTest {
             ));
 
             // Navigate to base URL
-            String baseUrl = ConfigReader.getProperty("base.url");
+            String baseUrl = ConfigReader.getBaseUrl();
             driver.get(baseUrl);
 
             String executionMode = ConfigReader.getProperty("execution.mode", "local");

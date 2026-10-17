@@ -3,6 +3,8 @@ package base;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.By;
+import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.PageFactory;
@@ -70,6 +72,46 @@ public abstract class BasePage{
      */
     protected WebElement waitForElementPresent(By locator) {
         return wait.until(ExpectedConditions.presenceOfElementLocated(locator));
+    }
+
+    /**
+     * Wait up to a given number of seconds for an element to become visible.
+     *
+     * <p>For elements that may legitimately be absent - optional banners, feature-gated
+     * UI, transient toasts. The shared explicit wait is deliberately long, which makes it
+     * the wrong tool here: a 30 second pause on every run just to confirm something is
+     * not there. Use this instead of a fixed sleep or a bare visibility check.</p>
+     *
+     * @param element WebElement to wait for
+     * @param seconds how long to wait before giving up
+     * @return true if the element became visible in time, false otherwise
+     */
+    protected boolean isElementDisplayedWithin(WebElement element, int seconds) {
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(seconds))
+                    .until(ExpectedConditions.visibilityOf(element));
+            return true;
+        } catch (TimeoutException | NoSuchElementException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Wait up to a given number of seconds for an element to become visible, then
+     * return its text.
+     *
+     * @param element WebElement to read
+     * @param seconds how long to wait before giving up
+     * @return the element text, or null if it never became visible
+     */
+    protected String getTextWithin(WebElement element, int seconds) {
+        if (!isElementDisplayedWithin(element, seconds)) {
+            logger.info("Element not visible within {}s - no text to read", seconds);
+            return null;
+        }
+        String text = element.getText();
+        logger.info("Retrieved text '{}' from element", text);
+        return text;
     }
 
     /**

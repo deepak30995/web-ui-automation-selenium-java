@@ -427,8 +427,10 @@ execution.mode=local
 # Browser selection
 browser=chrome
 
-# Application URL - resolved from the environment or secrets.properties
-base.url=${BASE_URL}
+# Target environment under test - staging or prod
+target.env=staging
+base.url.staging=${STAGING_BASE_URL}
+base.url.prod=${PROD_BASE_URL}
 
 # Timeouts (seconds)
 implicit.wait=10
@@ -436,56 +438,60 @@ explicit.wait=15
 page.load.timeout=30
 
 # Test credentials - resolved from environment variables, never hardcoded
-test.learner.email=${TEST_LEARNER_EMAIL}
-test.learner.password=${TEST_LEARNER_PASSWORD}
+test.user.email=${STAGING_USER_EMAIL}
+test.user.password=${STAGING_USER_PASSWORD}
 ```
 
-### **Test Credentials & Application URL**
+### **Target Environment, Credentials & URLs**
 
-Credentials **and the application URL** are **never stored in the repository**. The
-`config*.properties` files hold only `${...}` placeholders, which `ConfigReader`
-resolves at runtime from one of two sources.
+The suite runs against **staging** or **prod**, selected per run. This is a separate
+axis from `test.env`, which chooses *where the browser runs* - so any site can be
+exercised from any execution platform.
 
-**Resolution order:** environment variable → `secrets.properties` → unresolved (warns)
+```bash
+mvn clean test                                       # staging (default)
+mvn clean test -Dtarget.env=prod                     # prod
+mvn clean test -Dtarget.env=prod -Dtest.env=docker   # prod, via Docker Grid
+```
 
-#### Local development - `secrets.properties`
+`target.env` defaults to `staging`, so a missing or mistyped value can never silently
+point a run at production.
 
-Create the file once and the values persist across every run, from both the IDE and
-the command line:
+#### How values resolve
+
+Config files hold only `${...}` placeholders. `ConfigReader` resolves them in order:
+
+**`-D` property → environment variable → `secrets.properties` (git-ignored)**
+
+Per-environment keys are looked up as `<key>.<target.env>` via
+`ConfigReader.getForTarget(...)`, so `test.user.email` reads
+`test.user.email.staging` by default.
+
+#### Local setup
 
 ```bash
 cp src/main/resources/secrets.properties.example src/main/resources/secrets.properties
 ```
 
-Then fill it in:
+Then fill it in. `secrets.properties` is git-ignored; only the `.example` is committed.
 
-```properties
-TEST_LEARNER_EMAIL=<learner account email>
-TEST_LEARNER_PASSWORD=<learner account password>
-BASE_URL=<application URL under test>
-```
+| Key group | Keys |
+|-----------|------|
+| Application URLs | `STAGING_BASE_URL`, `PROD_BASE_URL` |
+| Staging accounts | `STAGING_USER_EMAIL`, `STAGING_USER_PASSWORD`, `STAGING_ADMIN_EMAIL`, `STAGING_ADMIN_PASSWORD`, `STAGING_INCORRECT_EMAIL` |
+| Prod accounts | `PROD_USER_EMAIL`, `PROD_USER_PASSWORD`, `PROD_ADMIN_EMAIL`, `PROD_ADMIN_PASSWORD`, `PROD_INCORRECT_EMAIL` |
+| Execution platforms | `BROWSERSTACK_USERNAME`, `BROWSERSTACK_ACCESS_KEY`, `LAMBDATEST_USERNAME`, `LAMBDATEST_ACCESS_KEY`, `SAUCELABS_USERNAME`, `SAUCELABS_ACCESS_KEY`, `AWS_DEVICE_FARM_URL` |
 
-`secrets.properties` is **git-ignored**; only the `.example` template is committed.
-Keys match the `${PLACEHOLDER}` names used in the config files.
+Platform keys are only needed for the platform you actually run against.
 
-> Prefer this over `export` for IDE runs - IntelliJ launched from the Dock does not
-> inherit your shell profile, so exported variables are invisible to it.
+> IntelliJ launched from the Dock does not inherit your shell profile, so exported
+> variables are invisible to IDE runs. Prefer `secrets.properties` for local work.
 
-#### CI - environment variables
+#### CI
 
-Environment variables take precedence over the file, so CI needs no secrets file:
-
-```bash
-export TEST_LEARNER_EMAIL="<learner account email>"
-export TEST_LEARNER_PASSWORD="<learner account password>"
-export BASE_URL="<application URL under test>"
-```
-
-A single run can also override any property directly:
-
-```bash
-mvn clean test -Dtest.learner.password=your-password
-```
+Environment variables take precedence over the file, so CI needs no secrets file - set
+them as repository secrets instead. The workflow runs against staging only; pointing a
+run at prod is a deliberate local decision.
 
 #### When nothing is set
 
@@ -493,51 +499,14 @@ A missing **or blank** value is left unresolved and logged, so the failure is ob
 rather than silent:
 
 ```
-WARN  utils.ConfigReader - Could not resolve 'TEST_LEARNER_PASSWORD' - set it as an
+WARN  utils.ConfigReader - Could not resolve 'STAGING_USER_PASSWORD' - set it as an
       environment variable or add it to secrets.properties
 ```
 
 Credential values are masked as `***MASKED***` in all log output.
 
-### **Application URL**
-
-No application URL is stored anywhere in this repository. Every one of the seven
-`config*.properties` files declares the same placeholder:
-
-```properties
-base.url=${BASE_URL}
-```
-
-`ConfigReader` substitutes `${BASE_URL}` at runtime, so the URL the tests actually hit
-comes entirely from your own machine or CI environment.
-
-**Where the value comes from**, highest precedence first:
-
-| # | Source | How to set it |
-|---|--------|---------------|
-| 1 | Maven / JVM property | `mvn clean test -Dbase.url=<url>` |
-| 2 | Environment variable | `export BASE_URL=<url>` |
-| 3 | `secrets.properties` | `BASE_URL=<url>` (git-ignored) |
-
-**Who reads it:**
-
-| Class | Purpose |
-|-------|---------|
-| `BaseTest` | `driver.get(baseUrl)` - the only class that navigates |
-| `ConfigReader` | Logs it at suite start via `printConfigInfo()` |
-| `ExtentReportManager` | Records it in the report's System Info panel |
-
-The URL in use is printed at the start of every run, so check the console or
-`test-output/logs/automation.log` to confirm which environment you are hitting:
-
-```
-[INFO] utils.ConfigReader - Base URL: <resolved value>
-```
-
-> Because no URL is committed, a fresh clone **cannot run tests until `BASE_URL` is
-> set**. This is deliberate - see Test Credentials & Application URL above.
-
 ---
+
 
 ## 📊 Reports
 
@@ -673,9 +642,9 @@ credential-related is ever committed.
 
 | Secret | Purpose |
 |--------|---------|
-| `BASE_URL` | Application under test |
-| `TEST_LEARNER_EMAIL` | Learner account email |
-| `TEST_LEARNER_PASSWORD` | Learner account password |
+| `STAGING_BASE_URL` | Staging application URL |
+| `STAGING_USER_EMAIL` | User account email |
+| `STAGING_USER_PASSWORD` | User account password |
 | `ANTHROPIC_API_KEY` | Only needed for the diagnosis step |
 
 This works because `ConfigReader` resolves placeholders in the same order everywhere:
@@ -806,10 +775,10 @@ Error: SE_EVENT_BUS_HOST not set
 
 #### **6. Unresolved Placeholder (Credentials or Base URL)**
 ```
-WARN  utils.ConfigReader - Environment variable not found: TEST_LEARNER_PASSWORD
+WARN  utils.ConfigReader - Environment variable not found: STAGING_USER_PASSWORD
 ```
-The literal string `${TEST_LEARNER_PASSWORD}` gets typed into the password field and
-login fails. An unset `BASE_URL` fails the same way - `driver.get("${BASE_URL}")`
+The literal string `${STAGING_USER_PASSWORD}` gets typed into the password field and
+login fails. An unset `STAGING_BASE_URL` fails the same way - `driver.get("${STAGING_BASE_URL}")`
 throws an invalid-argument error during setup.
 
 **Solution**: Create the git-ignored secrets file and fill in the values:
@@ -818,13 +787,13 @@ cp src/main/resources/secrets.properties.example src/main/resources/secrets.prop
 ```
 Or export them as environment variables, which take precedence:
 ```bash
-export TEST_LEARNER_EMAIL="<learner account email>"
-export TEST_LEARNER_PASSWORD="<learner account password>"
-export BASE_URL="<application URL under test>"
+export STAGING_USER_EMAIL="<user account email>"
+export STAGING_USER_PASSWORD="<user account password>"
+export STAGING_BASE_URL="<staging application URL>"
 ```
-Or override for a single run: `mvn clean test -Dtest.learner.password=your-password`
+Or override for a single run: `mvn clean test -Dtest.user.password=your-password`
 
-Note a **blank** entry counts as unset - `TEST_LEARNER_PASSWORD=` warns just like a
+Note a **blank** entry counts as unset - `STAGING_USER_PASSWORD=` warns just like a
 missing key.
 
 #### **7. Test Fails Immediately in Setup**
@@ -837,7 +806,7 @@ slow or unreachable, not a framework fault.
 
 **Solution**: Check the site responds within Chrome's renderer timeout:
 ```bash
-curl -o /dev/null -s -w "http=%{http_code} total=%{time_total}s\n" "$BASE_URL"
+curl -o /dev/null -s -w "http=%{http_code} total=%{time_total}s\n" "$STAGING_BASE_URL"
 ```
 A `total` above ~30s will fail every run until the environment recovers.
 

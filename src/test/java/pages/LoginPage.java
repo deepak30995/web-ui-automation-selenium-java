@@ -40,6 +40,12 @@ public class LoginPage extends BasePage {
     @FindBy(xpath = "//h5[text()='Courses']")
     private WebElement activeCourseHeaderText;
 
+    @FindBy(xpath = "//iframe[@id='microfe-popup-login']")
+    private WebElement loginAuthPageIframe;
+
+    @FindBy(xpath = "//div[contains(@class,'Toastify__toast--error')]//div[@role='alert']")
+    private WebElement errorToastMessageForIncorrectCredentials;
+
     public LoginPage() {
         logger.info("LoginPage initialized");
     }
@@ -53,7 +59,7 @@ public class LoginPage extends BasePage {
      * reporting.</p>
      */
     public void clickOnAcceptCookies() {
-        if (!isElementDisplayed(acceptCookiesButton)) {
+        if (!isElementDisplayedWithin(acceptCookiesButton, 3)) {
             logger.info("Accept cookies button not present on home page - skipping");
             return;
         }
@@ -118,7 +124,11 @@ public class LoginPage extends BasePage {
         return headerText;
     }
 
-    public void returnToMainContent() {
-        switchToDefaultContent();
+
+    public String getErrorMessageForIncorrectCredentials()
+    {
+        switchToFrameFromRoot(loginAuthPageIframe);
+        String errorMessage = getText(errorToastMessageForIncorrectCredentials);
+        return errorMessage;
     }
 }
