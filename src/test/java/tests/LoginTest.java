@@ -16,12 +16,12 @@ public class LoginTest extends BaseTest {
      * once BaseTest.setUp has created one. A field initializer would run during class
      * construction, before any driver exists.
      */
-    @BeforeMethod(dependsOnMethods = "setUp")
+    @BeforeMethod(alwaysRun = true, dependsOnMethods = "setUp")
     public void initPages() {
         loginPage = new LoginPage();
     }
 
-    @Test(priority = 1, description = "Verify complete login flow with valid credentials", enabled = true, groups = "login")
+    @Test(priority = 1, description = "Verify complete login flow with valid credentials", groups = {"smoke", "regression", "login"})
     public void completesLoginWithValidCredentials() {
 
         // Test data from config.properties
@@ -68,7 +68,7 @@ public class LoginTest extends BaseTest {
     }
 
 
-    @Test(priority = 2, description = "Verify an error is shown for incorrect email and password credentials that do not match an account", groups = "login")
+    @Test(priority = 2, description = "Verify an error is shown for incorrect email and password credentials that do not match an account", groups = {"regression", "login"})
     public void showsErrorForIncorrectEmailAndPassword()
     {
         String toastMessage = ConfigReader.getProperty("incorrect.email.and.incorrect.password.error.toast.message");
@@ -84,7 +84,7 @@ public class LoginTest extends BaseTest {
         Assert.assertEquals(errorMessage, toastMessage);
     }
 
-    @Test(priority = 3, description = "Verify an error is shown for correct email and incorrect password", groups = "login")
+    @Test(priority = 3, description = "Verify an error is shown for correct email and incorrect password", groups = {"regression", "login"})
     public void showsErrorForIncorrectPassword()
     {
 

@@ -321,19 +321,127 @@ docker-compose down
 ### **Local Execution**
 
 #### **Maven Commands**
+
+Every run is one command made of four optional parts:
+
+```
+mvn clean test  -P<type>  -Dtest.env=<where>  -Dbrowser=<browser>  -Dtarget.env=<site>
+                   │            │                    │                     │
+                   │            │                    │                     └─ which site
+                   │            │                    └─ which browser
+                   │            └─ where the browser runs
+                   └─ which tests to run (Maven profile, note -P not -D)
+```
+
+Leave any part out and it falls back to its default, so `mvn clean test` on its own
+runs every test, on staging, locally, in Chrome.
+
+| Part | Flag | Values | Default |
+|------|------|--------|---------|
+| Test type | `-P` *(profile)* | `smoke`, `sanity`, `regression`, `e2e` | `e2e` — every test |
+| Execution environment | `-Dtest.env=` | `local`, `docker`, `browserstack`, `lambdatest`, `saucelabs`, `aws` | `local` |
+| Browser | `-Dbrowser=` | `chrome`, `firefox`, `edge`, `safari` | `chrome` |
+| Target site | `-Dtarget.env=` | `staging`, `prod` | `staging` |
+
+> Test type uses **`-P`** because it selects a Maven *profile*. The other three are
+> **`-D`** because they are runtime properties read by `ConfigReader`.
+
+**Before your first run**, create the credentials file (see
+[Target Environment, Credentials & URLs](#target-environment-credentials--urls)):
+
 ```bash
-# Run specific test
-mvn clean test -Dtest=LoginTest
+cp src/main/resources/secrets.properties.example src/main/resources/secrets.properties
+```
 
-# Run with specific browser
-mvn clean test -Dtest=LoginTest -Dbrowser=chrome
+##### Common runs
 
-# Run all tests
+```bash
+# Everything, staging, local, Chrome
 mvn clean test
 
-# Run with custom environment
-mvn clean test -Dtest.env=local -Dbrowser=firefox
+# Smoke gate before a deploy
+mvn clean test -Psmoke
+
+# Same smoke against prod once the deploy lands
+mvn clean test -Psmoke -Dtarget.env=prod
+
+# Full regression on staging, parallel, via Docker Grid
+mvn clean test -Pregression -Dtest.env=docker
+
+# Cross-browser check
+mvn clean test -Psmoke -Dbrowser=firefox
+mvn clean test -Psmoke -Dbrowser=edge
+
+# All four axes at once: smoke, on prod, on BrowserStack, in Firefox
+mvn clean test -Psmoke -Dtarget.env=prod -Dtest.env=browserstack -Dbrowser=firefox
+
+# One test class or one method, ignoring the suite files
+mvn clean test -Dtest=LoginTest
+mvn clean test -Dtest=LoginTest#completesLoginWithValidCredentials
+
+# Headless (what CI uses)
+mvn clean test -Psmoke -Dheadless=true
 ```
+
+##### Checking what a command will run
+
+Every run prints its resolved configuration at the start, so you can confirm the
+flags took effect before the browser even opens:
+
+```
+[INFO] utils.ConfigReader - === Configuration Information ===
+[INFO] utils.ConfigReader - Current config file: config.properties
+[INFO] utils.ConfigReader - Execution mode: local
+[INFO] utils.ConfigReader - Browser: chrome
+[INFO] utils.ConfigReader - Target env: staging
+[INFO] utils.ConfigReader - Base URL: https://...
+```
+
+The suite that was selected appears in `target/surefire-reports/testng-results.xml`
+as the suite and test names, for example `Smoke Run` and `Smoke test`.
+
+If a run selects zero tests, the group tag and the suite's `<include>` disagree — see
+[How test types are selected](#how-test-types-are-selected).
+
+### **How test types are selected**
+
+Each profile picks a suite file under `testng/`:
+
+| Profile | Suite file | Behaviour |
+|---------|-----------|-----------|
+| *(none)* | `testng/testng-e2e.xml` | every test (the default) |
+| `-Psmoke` | `testng/testng-smoke.xml` | sequential - this is a gate |
+| `-Psanity` | `testng/testng-sanity.xml` | sequential |
+| `-Pregression` | `testng/testng-regression.xml` | `parallel="methods" thread-count="3"` |
+| `-Pe2e` | `testng/testng-e2e.xml` | **every test, tagged or not** - sequential |
+
+The suite file selects by **group**, and scans by package rather than listing classes:
+
+```xml
+<test name="Smoke tests">
+    <groups><run><include name="smoke"/></run></groups>
+    <packages><package name="tests"/></packages>
+</test>
+```
+
+So adding a test to a suite means tagging the method - there is no class list to keep
+in sync:
+
+```java
+@Test(groups = {"smoke", "regression", "login"})   // runs in both suites
+```
+
+Suite files rather than a single shared one because each type needs its own
+configuration - regression runs parallel, smoke must not - and because they can be run
+directly from the IDE (right-click the file), which never goes through Maven.
+
+> The e2e suite has no group filter, so it runs every test method in `tests` -
+> including any that were never tagged. It is the default, so `mvn clean test` always
+> runs everything and a forgotten group can never hide a test.
+
+> Every `@Before*`/`@After*` method carries `alwaysRun = true`. TestNG excludes
+> configuration methods outside the selected group, so without it a profiled run skips
+> driver setup and every test fails with a null driver.
 
 #### **Using Shell Scripts**
 ```bash
@@ -695,7 +803,11 @@ UIAutomationSelenium/
 │   └── ui-tests.yml                      # Headless run + failure diagnosis
 ├── CLAUDE.md                             # Project context for Claude Code
 ├── analyze-failure.sh                    # Diagnose the newest failure bundle
-├── testng.xml                            # TestNG suite (project root)
+├── testng/                               # TestNG suite files
+│   ├── testng-smoke.xml                  # smoke group, sequential
+│   ├── testng-sanity.xml                 # sanity group, sequential
+│   ├── testng-regression.xml             # regression group, parallel (default)
+│   └── testng-e2e.xml                    # e2e group, sequential
 ├── docker-compose.yml                    # Docker Grid config
 ├── pom.xml                              # Maven dependencies
 ├── .gitignore                           # Git ignore rules

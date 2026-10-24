@@ -42,7 +42,7 @@ public class BaseTest {
         return currentTest.get();
     }
 
-    @BeforeSuite
+    @BeforeSuite(alwaysRun = true)
     public void suiteSetup() {
         suiteStartTime = System.currentTimeMillis();
 
@@ -67,7 +67,7 @@ public class BaseTest {
         logger.info("=".repeat(80));
     }
 
-    @BeforeMethod
+    @BeforeMethod(alwaysRun = true)
     public void setUp(java.lang.reflect.Method method) {
         try {
             // Initialize driver using unified manager
@@ -99,7 +99,7 @@ public class BaseTest {
         }
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown(java.lang.reflect.Method method, ITestResult result) {
         try {
             // Mark test status for cloud platforms
@@ -159,7 +159,7 @@ public class BaseTest {
         }
     }
 
-    @AfterSuite
+    @AfterSuite(alwaysRun = true)
     public void suiteTeardown() {
         try {
             // Flush reports first

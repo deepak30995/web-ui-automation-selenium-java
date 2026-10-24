@@ -25,6 +25,12 @@
         <webdrivermanager.version>5.9.2</webdrivermanager.version>
         <extentreports.version>5.1.2</extentreports.version>
         <maven.surefire.version>3.2.5</maven.surefire.version>
+
+        <!-- Suite file to run when no profile is given. Overridden by the
+             smoke/sanity/regression/e2e profiles. Defaults to the e2e suite, which has
+             no group filter, so a plain `mvn test` runs every test - including any that
+             were never tagged. -->
+        <suite.file>testng/testng-e2e.xml</suite.file>
         <maven.compiler.version>3.13.0</maven.compiler.version>
         <commons.io.version>2.16.1</commons.io.version>
         <log4j.version>2.24.1</log4j.version>
@@ -146,8 +152,9 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven.surefire.version}</version>
                 <configuration>
+                    <!-- Suite chosen by profile (-Psmoke) or directly (-Dsuite.file=...) -->
                     <suiteXmlFiles>
-                        <suiteXmlFile>testng.xml</suiteXmlFile>
+                        <suiteXmlFile>${suite.file}</suiteXmlFile>
                     </suiteXmlFiles>
                     <systemPropertyVariables>
                         <!-- Added for better locale handling -->
@@ -171,7 +178,7 @@
                 <version>3.2.5</version>
                 <configuration>
                     <suiteXmlFiles>
-                        <suiteXmlFile>testng.xml</suiteXmlFile>
+                        <suiteXmlFile>${suite.file}</suiteXmlFile>
                     </suiteXmlFiles>
                     <systemPropertyVariables>
                         <user.language>en</user.language>
@@ -206,42 +213,25 @@
         </plugins>
     </build>
 
-    <!-- Profiles for different environments -->
+    <!-- Test type profiles. Each selects a suite file; that file decides which groups
+         run and how (parallelism, thread count). Execution environment, browser and
+         target site stay as -D flags so all four axes combine freely. -->
     <profiles>
-        <!-- Development Profile -->
         <profile>
-            <id>dev</id>
-            <properties>
-                <environment>dev</environment>
-            </properties>
+            <id>smoke</id>
+            <properties><suite.file>testng/testng-smoke.xml</suite.file></properties>
         </profile>
-
-        <!-- QA Profile -->
         <profile>
-            <id>qa</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <properties>
-                <environment>qa</environment>
-            </properties>
+            <id>sanity</id>
+            <properties><suite.file>testng/testng-sanity.xml</suite.file></properties>
         </profile>
-
-        <!-- Production Profile -->
         <profile>
-            <id>prod</id>
-            <properties>
-                <environment>prod</environment>
-            </properties>
+            <id>regression</id>
+            <properties><suite.file>testng/testng-regression.xml</suite.file></properties>
         </profile>
-
-        <!-- Docker Profile for containerized execution -->
         <profile>
-            <id>docker</id>
-            <properties>
-                <environment>docker</environment>
-                <test.env>docker</test.env>
-            </properties>
+            <id>e2e</id>
+            <properties><suite.file>testng/testng-e2e.xml</suite.file></properties>
         </profile>
     </profiles>
 </project>
