@@ -4,6 +4,11 @@
 <!-- Shallow pass over the main flows after a build. -->
 <suite name="Sanity Run" verbose="1">
 
+    <listeners>
+        <!-- Applies RetryAnalyzer to every test, so new tests never miss it -->
+        <listener class-name="listeners.RetryListener"/>
+    </listeners>
+
     <test name="Sanity test">
         <groups>
             <run>

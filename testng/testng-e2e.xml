@@ -7,6 +7,11 @@
      Sequential - full end-to-end coverage, no parallel interference. -->
 <suite name="E2E Run" verbose="1">
 
+    <listeners>
+        <!-- Applies RetryAnalyzer to every test, so new tests never miss it -->
+        <listener class-name="listeners.RetryListener"/>
+    </listeners>
+
     <test name="E2E test">
         <!-- Scanned by package, so new classes are picked up automatically. -->
         <packages>

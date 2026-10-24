@@ -25,7 +25,17 @@ import java.util.Date;
  */
 public class BaseTest {
 
-    protected WebDriver driver;
+    /**
+     * Held per thread. TestNG reuses one test-class instance across parallel methods,
+     * so a plain instance field is shared by every thread and the last writer wins -
+     * which silently makes three parallel tests drive one browser.
+     */
+    private static final ThreadLocal<WebDriver> currentDriver = new ThreadLocal<>();
+
+    /** Driver for the test running on this thread. */
+    protected WebDriver getDriver() {
+        return currentDriver.get();
+    }
 
     // Held per thread so parallel tests never overwrite each other's report node
     private static final ThreadLocal<ExtentTest> currentTest = new ThreadLocal<>();
@@ -71,7 +81,7 @@ public class BaseTest {
     public void setUp(java.lang.reflect.Method method) {
         try {
             // Initialize driver using unified manager
-            driver = UnifiedDriverManager.getDriver();
+            currentDriver.set(UnifiedDriverManager.getDriver());
 
             // Create extent test with environment info
             String environment = ConfigReader.getProperty("environment", "UNKNOWN");
@@ -82,7 +92,7 @@ public class BaseTest {
 
             // Navigate to base URL
             String baseUrl = ConfigReader.getBaseUrl();
-            driver.get(baseUrl);
+            getDriver().get(baseUrl);
 
             String executionMode = ConfigReader.getProperty("execution.mode", "local");
             String browser = ConfigReader.getProperty("browser", "chrome");
@@ -112,14 +122,14 @@ public class BaseTest {
                 if (screenshotPath != null) {
                     ExtentReportManager.addScreenshot(getTest(), screenshotPath, "Failure screenshot");
                 }
-                FailureReporter.capture(driver, method.getName(), result.getThrowable(), screenshotPath);
+                FailureReporter.capture(getDriver(), method.getName(), result.getThrowable(), screenshotPath);
 
                 UnifiedDriverManager.markTestStatus("failed", result.getThrowable().getMessage());
                 getTest().fail("Test failed: " + result.getThrowable().getMessage());
             }
 
             // Quit driver
-            if (driver != null) {
+            if (getDriver() != null) {
                 UnifiedDriverManager.quitDriver();
             }
 
@@ -129,6 +139,7 @@ public class BaseTest {
             logger.error("Error in test teardown: {}", e.getMessage());
         } finally {
             currentTest.remove();
+            currentDriver.remove();
         }
     }
 
@@ -137,7 +148,7 @@ public class BaseTest {
      * @return absolute path to the saved file, or null if the capture failed
      */
     private String captureScreenshot(String testName) {
-        if (driver == null) {
+        if (getDriver() == null) {
             return null;
         }
         try {
@@ -146,7 +157,7 @@ public class BaseTest {
             Files.createDirectories(directory);
 
             String timestamp = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss").format(new Date());
-            File source = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+            File source = ((TakesScreenshot) getDriver()).getScreenshotAs(OutputType.FILE);
             Path target = directory.resolve(testName + "_" + timestamp + ".png");
 
             Files.copy(source.toPath(), target);
