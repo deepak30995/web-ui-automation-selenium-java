@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+
+<!-- Critical path only. Runs sequentially - this is a gate, not a sweep. -->
+<suite name="Smoke Run" verbose="1">
+
+    <test name="Smoke test">
+        <groups>
+            <run>
+                <include name="smoke"/>
+            </run>
+        </groups>
+        <!-- Scanned by package, so a new class tagged "smoke" is picked up
+             automatically - no class list to keep in sync. -->
+        <packages>
+            <package name="tests"/>
+        </packages>
+    </test>
+
+</suite>

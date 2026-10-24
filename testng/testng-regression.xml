@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+
+<!-- Full coverage. Parallel by method to keep the wall-clock down. -->
+<suite name="Regression Run" verbose="1" parallel="methods" thread-count="3">
+
+    <test name="Regression test">
+        <groups>
+            <run>
+                <include name="regression"/>
+            </run>
+        </groups>
+        <!-- Scanned by package, so a new class tagged "regression" is picked up
+             automatically - no class list to keep in sync. -->
+        <packages>
+            <package name="tests"/>
+        </packages>
+    </test>
+
+</suite>

@@ -6,11 +6,34 @@ Maven, ExtentReports + Allure, Log4j2.
 ## Commands
 
 ```bash
-mvn clean test                      # full suite (testng.xml at project root)
-mvn clean test -Dtest.env=docker    # pick a config-<env>.properties
+mvn clean test                      # every test: staging, local, chrome
+mvn clean test -Psmoke              # test type:  smoke | sanity | regression | e2e
+mvn clean test -Dtest.env=docker    # runs on:    local | docker | browserstack | lambdatest | saucelabs | aws
+mvn clean test -Dbrowser=firefox    # browser:    chrome | firefox | edge | safari
+mvn clean test -Dtarget.env=prod    # site:       staging | prod
 ./analyze-failure.sh                # diagnose the newest failure bundle
 ./fix-failure.sh                    # propose a fix (STALE_LOCATOR verdicts only)
 ```
+
+All four axes combine freely:
+
+```bash
+mvn clean test -Psmoke -Dtarget.env=prod -Dtest.env=browserstack -Dbrowser=firefox
+```
+
+Profiles carry only the test type; the other three stay as `-D` flags, so there is no
+combinatorial explosion of profile names.
+
+Each profile selects a suite file under `testng/`, and that file selects by group and
+scans by package - so adding a test to a suite means tagging the method, not editing
+XML. The e2e suite has no group filter - it runs every test method, tagged or not -
+and is the default, so a forgotten group can never hide a test. Suite files
+exist so each type can carry its own configuration (regression runs
+`parallel="methods"`, smoke must not) and so they can be run directly from the IDE.
+
+**Every `@Before*`/`@After*` method must carry `alwaysRun = true`.** Group filtering
+excludes configuration methods outside the selected group, so without it a profiled
+run skips driver setup and every test fails with a null driver.
 
 ## Layout
 

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+
+<!-- Runs EVERY test method in the project, tagged or not.
+     Deliberately has no <groups> filter: this is the catch-all suite, so a test that
+     was never given a group still runs here rather than silently running nowhere.
+     Sequential - full end-to-end coverage, no parallel interference. -->
+<suite name="E2E Run" verbose="1">
+
+    <test name="E2E test">
+        <!-- Scanned by package, so new classes are picked up automatically. -->
+        <packages>
+            <package name="tests"/>
+        </packages>
+    </test>
+
+</suite>

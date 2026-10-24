@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+
+<!-- Shallow pass over the main flows after a build. -->
+<suite name="Sanity Run" verbose="1">
+
+    <test name="Sanity test">
+        <groups>
+            <run>
+                <include name="sanity"/>
+            </run>
+        </groups>
+        <!-- Scanned by package, so a new class tagged "sanity" is picked up
+             automatically - no class list to keep in sync. -->
+        <packages>
+            <package name="tests"/>
+        </packages>
+    </test>
+
+</suite>
