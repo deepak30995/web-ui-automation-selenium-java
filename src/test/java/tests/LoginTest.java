@@ -2,27 +2,16 @@ package tests;
 
 import base.BaseTest;
 import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import pages.LoginPage;
 import utils.ConfigReader;
 
 public class LoginTest extends BaseTest {
 
-    private LoginPage loginPage;
-
-    /**
-     * Page objects capture the driver in their constructor, so they can only be built
-     * once BaseTest.setUp has created one. A field initializer would run during class
-     * construction, before any driver exists.
-     */
-    @BeforeMethod(alwaysRun = true, dependsOnMethods = "setUp")
-    public void initPages() {
-        loginPage = new LoginPage();
-    }
-
     @Test(priority = 1, description = "Verify complete login flow with valid credentials", groups = {"smoke", "regression", "login"})
     public void completesLoginWithValidCredentials() {
+
+        LoginPage loginPage = new LoginPage();
 
         // Test data from config.properties
         String testEmail = ConfigReader.getForTarget("test.user.email");
@@ -67,10 +56,11 @@ public class LoginTest extends BaseTest {
         getTest().pass("Verified header text: " + expectedHeaderText);
     }
 
-
     @Test(priority = 2, description = "Verify an error is shown for incorrect email and password credentials that do not match an account", groups = {"regression", "login"})
     public void showsErrorForIncorrectEmailAndPassword()
     {
+
+        LoginPage loginPage = new LoginPage();
         String toastMessage = ConfigReader.getProperty("incorrect.email.and.incorrect.password.error.toast.message");
         String incorrectEmail = ConfigReader.getForTarget("test.incorrect.email");
         loginPage.clickOnAcceptCookies();
@@ -87,6 +77,8 @@ public class LoginTest extends BaseTest {
     @Test(priority = 3, description = "Verify an error is shown for correct email and incorrect password", groups = {"regression", "login"})
     public void showsErrorForIncorrectPassword()
     {
+
+        LoginPage loginPage = new LoginPage();
 
         String toastMessage = ConfigReader.getProperty("correct.email.and.incorrect.password.error.toast.message");
         String correctEmail = ConfigReader.getForTarget("test.user.email");

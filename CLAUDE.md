@@ -145,6 +145,15 @@ Hard rules, because a wrong fix produces a passing test that verifies the wrong 
   C, not a locator problem.
 - When evidence is thin, answer UNKNOWN. That is a useful result.
 
+## Retries
+
+Suites register `listeners.RetryListener`, applying `RetryAnalyzer` to every test.
+Retries happen **only** for `WebDriverException` and its subclasses. `AssertionError`
+is never retried — the application behaving differently is the finding, and re-running
+until green would hide it. Count comes from `retry.count` (default 1).
+
+TestNG does not retry configuration methods, so a `@BeforeMethod` failure is final.
+
 ## Known gaps
 
 - No explicit wait after login before entering the My Courses frame; environment

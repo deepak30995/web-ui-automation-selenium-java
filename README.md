@@ -365,7 +365,7 @@ mvn clean test -Psmoke
 # Same smoke against prod once the deploy lands
 mvn clean test -Psmoke -Dtarget.env=prod
 
-# Full regression on staging, parallel, via Docker Grid
+# Full regression on staging via Docker Grid
 mvn clean test -Pregression -Dtest.env=docker
 
 # Cross-browser check
@@ -403,6 +403,40 @@ as the suite and test names, for example `Smoke Run` and `Smoke test`.
 If a run selects zero tests, the group tag and the suite's `<include>` disagree — see
 [How test types are selected](#how-test-types-are-selected).
 
+### **Retrying flaky failures**
+
+Every suite registers `listeners.RetryListener`, which applies `RetryAnalyzer` to all
+tests automatically — individual tests never need `@Test(retryAnalyzer = ...)`, which
+is easy to forget on a new test.
+
+A failure is retried **only when it looks like flakiness**:
+
+| Failure | Retried? | Why |
+|---------|----------|-----|
+| `TimeoutException`, `StaleElementReferenceException`, any `WebDriverException` | yes | says more about a slow or loaded environment than the application |
+| `AssertionError` | **no** | the application produced a different result — that is the finding the test exists for |
+| Anything else (`NullPointerException`, etc.) | **no** | a real defect in the test or framework |
+
+That distinction is the whole point. A retry analyzer that re-runs everything until it
+passes turns a genuine regression into a green build.
+
+Attempts come from `retry.count` (default `1`):
+
+```bash
+mvn clean test -Pregression -Dretry.count=2
+```
+
+Retries are logged loudly, so flakiness stays visible rather than being silently
+smoothed over:
+
+```
+WARN  listeners.RetryAnalyzer - Retrying showsErrorForIncorrectEmailAndPassword (attempt 1 of 1) after TimeoutException
+```
+
+> TestNG does not retry **configuration** methods. A failure in `@BeforeMethod` — for
+> example the browser failing to reach the site at all — is not retried, only failures
+> inside the test body.
+
 ### **How test types are selected**
 
 Each profile picks a suite file under `testng/`:
@@ -412,7 +446,7 @@ Each profile picks a suite file under `testng/`:
 | *(none)* | `testng/testng-e2e.xml` | every test (the default) |
 | `-Psmoke` | `testng/testng-smoke.xml` | sequential - this is a gate |
 | `-Psanity` | `testng/testng-sanity.xml` | sequential |
-| `-Pregression` | `testng/testng-regression.xml` | `parallel="methods" thread-count="3"` |
+| `-Pregression` | `testng/testng-regression.xml` | sequential (parallel available, see the file) |
 | `-Pe2e` | `testng/testng-e2e.xml` | **every test, tagged or not** - sequential |
 
 The suite file selects by **group**, and scans by package rather than listing classes:

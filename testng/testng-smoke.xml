@@ -4,6 +4,11 @@
 <!-- Critical path only. Runs sequentially - this is a gate, not a sweep. -->
 <suite name="Smoke Run" verbose="1">
 
+    <listeners>
+        <!-- Applies RetryAnalyzer to every test, so new tests never miss it -->
+        <listener class-name="listeners.RetryListener"/>
+    </listeners>
+
     <test name="Smoke test">
         <groups>
             <run>
