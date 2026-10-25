@@ -155,19 +155,6 @@ public class ExtentReportManager {
         }
     }
 
-    /**
-     * Create a new test in the report
-     * @param testName Test name
-     * @return ExtentTest instance
-     */
-    public static ExtentTest createTest(String testName) {
-        if (extent == null) {
-            initReports();
-        }
-        ExtentTest test = extent.createTest(testName);
-        logger.debug("Created test: {}", testName);
-        return test;
-    }
 
     /**
      * Create a new test with description
@@ -184,22 +171,6 @@ public class ExtentReportManager {
         return test;
     }
 
-    /**
-     * Create a test with category/tag
-     * @param testName Test name
-     * @param testDescription Test description
-     * @param category Test category/tag
-     * @return ExtentTest instance
-     */
-    public static ExtentTest createTest(String testName, String testDescription, String category) {
-        if (extent == null) {
-            initReports();
-        }
-        ExtentTest test = extent.createTest(testName, testDescription);
-        test.assignCategory(category);
-        logger.debug("Created test: {} with category: {}", testName, category);
-        return test;
-    }
 
     /**
      * Flush the reports (write to file)
