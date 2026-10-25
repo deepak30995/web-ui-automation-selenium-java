@@ -74,6 +74,7 @@ Known cases:
 | Element | Locator | Gate |
 |---------|---------|------|
 | Cookie consent banner | `id=acceptCookiesBtn` | Organization-level config key |
+| My Courses iframe | `id=collabIframe` | Settings → User experience → Learner's experience set to **Legacy View**. Under Basic or Advanced View the courses page renders in the top-level document and there is no iframe at all. |
 
 This matters because the DOM evidence is identical either way: an element that was
 renamed and an element that is switched off both produce zero matches in the captured

@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.FindBy;
 import base.BasePage;
+import io.qameta.allure.Step;
 
 public class LoginPage extends BasePage {
 
@@ -58,6 +59,7 @@ public class LoginPage extends BasePage {
      * therefore expected behaviour, not drift - only a genuine click problem is worth
      * reporting.</p>
      */
+    @Step("Dismiss cookie banner if shown")
     public void clickOnAcceptCookies() {
         if (!isElementDisplayedWithin(acceptCookiesButton, 3)) {
             logger.info("Accept cookies button not present on home page - skipping");
@@ -71,38 +73,47 @@ public class LoginPage extends BasePage {
         }
     }
 
+    @Step("Open login form from home page")
     public void clickLoginButtonFromHomePage() {
         clickElement(loginButtonHomePage);
         logger.info("Clicked on 'Login' button from home page");
     }
 
     /**
-     * Switches into the login popup iframe and opens the login form from the
-     * sign-up variant of the popup. Not part of the current flow - the site now
-     * presents the login form directly - but kept for setups that still show it.
+     * Switches from the sign-up form to the login form inside the popup.
+     *
+     * <p>When the popup opens on "Create an account" rather than the login form, an
+     * existing user reaches login through the "Already have an account? Log in" link.
+     * Which form the popup opens on varies, so this step is not part of every flow -
+     * it is skipped when the login form is presented directly.</p>
      */
+    @Step("Switch to login form in popup when user is on the signup form")
     public void clickLoginButtonOnPopup() {
         switchToFrameFromRoot(loginPopupIframe);
         clickElement(loginButtonOnCreateAccountPopup);
         logger.info("Clicked on 'Log in' button in popup");
     }
 
+    @Step("Choose email as login method")
     public void clickContinueWithEmailButton() {
         switchToFrameFromRoot(loginPopupIframe);
         clickElement(continueWithEmailButton);
         logger.info("Clicked on 'Continue with email' button");
     }
 
+    @Step("Enter email: {email}")
     public void enterEmail(String email) {
         typeText(emailInputField, email);
         logger.info("Entered email: {}", email);
     }
 
+    @Step("Enter password")
     public void enterPassword(String password) {
         typeText(passwordInputField, password);
         logger.info("Entered password (masked for security)");
     }
 
+    @Step("Submit login form")
     public void clickNextButton() {
         clickElement(nextButton);
         logger.info("Clicked on 'Next' button");
@@ -110,13 +121,22 @@ public class LoginPage extends BasePage {
 
     /**
      * Leaves the login popup and enters the My Courses iframe.
-     * Kept separate from the click actions so frame navigation is explicit.
+     *
+     * <p>The {@code collabIframe} only exists when the organization has
+     * <strong>Legacy View</strong> selected under Settings &rarr; User experience &rarr;
+     * Learner's experience. Under Basic or Advanced View the courses page renders in the
+     * top-level document and this step must be skipped - its absence is a configuration
+     * difference, not a stale locator.</p>
+     *
+     * <p>Kept separate from the click actions so frame navigation is explicit.</p>
      */
+    @Step("Enter My Courses frame (Legacy View only)")
     public void switchToMyCoursesFrame() {
         switchToFrameFromRoot(myCoursesIframe);
         logger.info("Switched to 'My Courses' iframe");
     }
 
+    @Step("Read courses page heading")
     public String getActiveCourseHeaderText() {
         switchToDefaultContent();
         String headerText = getText(activeCourseHeaderText);
@@ -125,6 +145,7 @@ public class LoginPage extends BasePage {
     }
 
 
+    @Step("Read login error message")
     public String getErrorMessageForIncorrectCredentials()
     {
         switchToFrameFromRoot(loginAuthPageIframe);
