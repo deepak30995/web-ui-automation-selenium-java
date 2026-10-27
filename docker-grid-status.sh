@@ -3,6 +3,11 @@
 echo "📊 Selenium Grid Status"
 echo "======================="
 
+if ! command -v jq > /dev/null 2>&1; then
+    echo "❌ jq is required. Install it with: brew install jq"
+    exit 1
+fi
+
 # Check if containers are running
 if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "selenium-hub"; then
     echo "✅ Hub Status: Running"
@@ -26,7 +31,12 @@ if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "selenium-hub"; 
     # Show resource usage
     echo ""
     echo "💻 Resource Usage:"
-    docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" $(docker ps --filter "name=selenium" -q)
+    SELENIUM_IDS=$(docker ps --filter "name=selenium" -q)
+    if [ -n "$SELENIUM_IDS" ]; then
+        docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" $SELENIUM_IDS
+    else
+        echo "  (no selenium containers running)"
+    fi
 
 else
     echo "❌ Selenium Grid is not running"

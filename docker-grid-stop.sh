@@ -3,7 +3,7 @@
 echo "🛑 Stopping Selenium Grid..."
 
 # Stop and remove containers
-docker-compose down
+docker compose down
 
 # Remove dangling images (optional)
 echo "🧹 Cleaning up dangling images..."
