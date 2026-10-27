@@ -1,64 +1,97 @@
-# Fixed docker-compose.yml - Remove version and fix environment variables
-
 services:
   selenium-hub:
-    image: selenium/hub:4.15.0
+    image: selenium/hub:4.26.0
+    platform: linux/amd64
     container_name: selenium-hub
     ports:
       - "4444:4444"
     environment:
-      - GRID_MAX_SESSION=16
-      - GRID_BROWSER_TIMEOUT=300
-      - GRID_TIMEOUT=300
+      # Selenium 4 reads SE_ prefixed variables; GRID_MAX_SESSION was Selenium 3
+      - SE_GRID_MAX_SESSION=16
+      # How long a queued session request waits for a free node
+      - SE_SESSION_REQUEST_TIMEOUT=300
+      - SE_SESSION_RETRY_INTERVAL=5
     networks:
       - selenium-grid
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4444/wd/hub/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
 
   chrome-node:
-    image: selenium/node-chrome:4.15.0
+    image: selenium/node-chrome:4.26.0
+    # Chrome has no Linux ARM64 build, so this image is amd64-only and runs under
+    # Rosetta on Apple Silicon (Docker Desktop -> Settings -> General -> "Use Rosetta
+    # for x86_64/amd64 emulation"). selenium/node-chromium is the native ARM option,
+    # but reports browserName "chromium" rather than "chrome".
+    platform: linux/amd64
     depends_on:
-      - selenium-hub
+      selenium-hub:
+        condition: service_healthy
     environment:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - NODE_MAX_INSTANCES=4
-      - NODE_MAX_SESSION=4
-    volumes:
-      - /dev/shm:/dev/shm
+      # Selenium 4 names. The SE_ prefix matters - NODE_MAX_INSTANCES and
+      # NODE_MAX_SESSION are Selenium 3 and are silently ignored, leaving each
+      # node at one session.
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      # Kills a browser session idle this long, so a hung test frees its slot
+      - SE_NODE_SESSION_TIMEOUT=300
+    shm_size: 2gb
     networks:
       - selenium-grid
     deploy:
       replicas: 2
 
   firefox-node:
-    image: selenium/node-firefox:4.15.0
+    image: selenium/node-firefox:4.26.0
+    # Pinned to amd64 to match the rest of the grid. Firefox does publish ARM64
+    # images, so this can be dropped if you only ever run Firefox on Apple Silicon.
+    platform: linux/amd64
     depends_on:
-      - selenium-hub
+      selenium-hub:
+        condition: service_healthy
     environment:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - NODE_MAX_INSTANCES=4
-      - NODE_MAX_SESSION=4
-    volumes:
-      - /dev/shm:/dev/shm
+      # Selenium 4 names. The SE_ prefix matters - NODE_MAX_INSTANCES and
+      # NODE_MAX_SESSION are Selenium 3 and are silently ignored, leaving each
+      # node at one session.
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      # Kills a browser session idle this long, so a hung test frees its slot
+      - SE_NODE_SESSION_TIMEOUT=300
+    shm_size: 2gb
     networks:
       - selenium-grid
     deploy:
       replicas: 1
 
   edge-node:
-    image: selenium/node-edge:4.15.0
+    image: selenium/node-edge:4.26.0
+    # Edge has no Linux ARM64 build, so this image is amd64-only and runs under
+    # Rosetta on Apple Silicon. There is no native ARM alternative for Edge.
+    platform: linux/amd64
     depends_on:
-      - selenium-hub
+      selenium-hub:
+        condition: service_healthy
     environment:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - NODE_MAX_INSTANCES=4
-      - NODE_MAX_SESSION=4
-    volumes:
-      - /dev/shm:/dev/shm
+      # Selenium 4 names. The SE_ prefix matters - NODE_MAX_INSTANCES and
+      # NODE_MAX_SESSION are Selenium 3 and are silently ignored, leaving each
+      # node at one session.
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      # Kills a browser session idle this long, so a hung test frees its slot
+      - SE_NODE_SESSION_TIMEOUT=300
+    shm_size: 2gb
     networks:
       - selenium-grid
     deploy:

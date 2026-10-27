@@ -8,21 +8,34 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+# The readiness check below parses JSON; without jq it silently reports "not ready"
+if ! command -v jq > /dev/null 2>&1; then
+    echo "❌ jq is required for the readiness check. Install it with: brew install jq"
+    exit 1
+fi
+
 # Pull latest images
 echo "📦 Pulling latest Selenium images..."
-docker-compose pull
+docker compose pull
 
 # Start the grid
 echo "🔄 Starting Selenium Grid containers..."
-docker-compose up -d
+docker compose up -d
 
-# Wait for hub to be ready
+# Poll rather than sleeping a fixed amount: a cold image pull needs far longer
+# than 15s, and a warm start is ready in two.
 echo "⏳ Waiting for Selenium Hub to be ready..."
-sleep 15
+READY=false
+for i in $(seq 1 60); do
+    if curl -sSL http://localhost:4444/wd/hub/status 2>/dev/null | jq -r '.value.ready' 2>/dev/null | grep -q "true"; then
+        READY=true
+        break
+    fi
+    sleep 2
+done
 
-# Check if hub is running
 echo "🔍 Checking hub status..."
-if curl -sSL http://localhost:4444/wd/hub/status | jq -r '.value.ready' | grep -q "true"; then
+if [ "$READY" = true ]; then
     echo "✅ Selenium Grid started successfully!"
     echo "🌐 Hub URL: http://localhost:4444"
     echo "🖥️  Grid Console: http://localhost:4444/ui"
@@ -32,6 +45,6 @@ if curl -sSL http://localhost:4444/wd/hub/status | jq -r '.value.ready' | grep -
     echo "📋 Running containers:"
     docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 else
-    echo "❌ Hub is not ready. Check logs with: docker-compose logs"
+    echo "❌ Hub is not ready. Check logs with: docker compose logs"
     exit 1
 fi

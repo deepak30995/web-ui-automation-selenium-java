@@ -765,17 +765,45 @@ docker-compose down
 
 | Service | Image | Replicas | Purpose |
 |---------|-------|----------|---------|
-| selenium-hub | selenium/hub:4.15.0 | 1 | Central hub |
-| chrome-node | selenium/node-chrome:4.15.0 | 2 | Chrome browsers |
-| firefox-node | selenium/node-firefox:4.15.0 | 1 | Firefox browser |
-| edge-node | selenium/node-edge:4.15.0 | 1 | Edge browser |
+| selenium-hub | selenium/hub:4.26.0 | 1 | Central hub |
+| chrome-node | selenium/node-chrome:4.26.0 | 2 | Chrome browsers |
+| firefox-node | selenium/node-firefox:4.26.0 | 1 | Firefox browser |
+| edge-node | selenium/node-edge:4.26.0 | 1 | Edge browser |
+
+### **Apple Silicon**
+
+Chrome and Edge have no Linux ARM64 builds, so `selenium/node-chrome` and
+`selenium/node-edge` are amd64-only. Pulling them on an M-series Mac fails with:
+
+```
+no matching manifest for linux/arm64/v8 in the manifest list entries
+```
+
+`docker-compose.yml` therefore pins every service to `platform: linux/amd64`, which
+runs them under Rosetta. Enable it in **Docker Desktop → Settings → General → "Use
+Rosetta for x86_64/amd64 emulation"**.
+
+Expect the grid to be noticeably slower than a native run - the `explicit.wait=30`
+default absorbs most of it, and the retry analyzer covers the rest.
+
+> A native ARM option is `selenium/node-chromium`, which is genuinely faster. It
+> reports `browserName: chromium` rather than `chrome`, so `UnifiedDriverManager`
+> would need a matching browser option before you could use it.
 
 ### **VNC Live View**
 
-Watch tests execute in real-time:
-1. Open: `http://localhost:4444/ui`
-2. Navigate to active session
-3. Password: `secret`
+The Grid console at `http://localhost:4444/ui` lists running sessions, but its live-view
+button connects to each node's port **7900**, which the nodes do not publish. To watch a
+session, expose that port on the node you want to observe - note this conflicts with
+`deploy.replicas`, so drop the replica count to 1 for that service first:
+
+```yaml
+chrome-node:
+  ports:
+    - "7900:7900"
+```
+
+Then open `http://localhost:7900` (password `secret`).
 
 ---
 
