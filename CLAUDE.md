@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Selenium + TestNG UI automation for the Graphy-hosted learning site. Page Object Model,
+Selenium + TestNG UI automation for an online learning platform. Page Object Model,
 Maven, ExtentReports + Allure, Log4j2.
 
 ## Commands
