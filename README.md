@@ -770,25 +770,38 @@ docker-compose down
 | firefox-node | selenium/node-firefox:4.26.0 | 1 | Firefox browser |
 | edge-node | selenium/node-edge:4.26.0 | 1 | Edge browser |
 
-### **Apple Silicon**
+### **Platform / architecture**
 
-Chrome and Edge have no Linux ARM64 builds, so `selenium/node-chrome` and
-`selenium/node-edge` are amd64-only. Pulling them on an M-series Mac fails with:
+The compose file pins every service to `${DOCKER_PLATFORM:-linux/amd64}`. This is a
+**no-op on Intel Mac, Windows and Linux x86** - those hosts are already amd64 - so the
+same file works everywhere without changes.
+
+It matters only on ARM hosts. Google and Microsoft publish no Linux ARM64 builds of
+Chrome or Edge, so pulling them on an M-series Mac fails with:
 
 ```
 no matching manifest for linux/arm64/v8 in the manifest list entries
 ```
 
-`docker-compose.yml` therefore pins every service to `platform: linux/amd64`, which
-runs them under Rosetta. Enable it in **Docker Desktop → Settings → General → "Use
-Rosetta for x86_64/amd64 emulation"**.
+| Host | Effect |
+|------|--------|
+| Intel Mac, Windows, Linux x86 | native, no change |
+| Apple Silicon | runs under Rosetta - enable **Docker Desktop → Settings → General → "Use Rosetta for x86_64/amd64 emulation"** |
+| Linux ARM (Graviton, Pi) | emulated via QEMU; slower, and needs `binfmt` registered |
 
-Expect the grid to be noticeably slower than a native run - the `explicit.wait=30`
-default absorbs most of it, and the retry analyzer covers the rest.
+Expect an emulated grid to be slower than native. `explicit.wait=30` absorbs most of
+it, and the retry analyzer covers the rest.
 
-> A native ARM option is `selenium/node-chromium`, which is genuinely faster. It
-> reports `browserName: chromium` rather than `chrome`, so `UnifiedDriverManager`
-> would need a matching browser option before you could use it.
+To run native on ARM, switch the Chrome node to `selenium/node-chromium` and override
+the platform:
+
+```bash
+DOCKER_PLATFORM=linux/arm64 ./docker-grid-start.sh
+```
+
+Chromium reports `browserName: chromium` rather than `chrome`, so
+`UnifiedDriverManager` needs a matching browser option before this works. Edge has no
+ARM alternative at all.
 
 ### **VNC Live View**
 

@@ -1,7 +1,7 @@
 services:
   selenium-hub:
     image: selenium/hub:4.26.0
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: selenium-hub
     ports:
       - "4444:4444"
@@ -22,11 +22,13 @@ services:
 
   chrome-node:
     image: selenium/node-chrome:4.26.0
-    # Chrome has no Linux ARM64 build, so this image is amd64-only and runs under
-    # Rosetta on Apple Silicon (Docker Desktop -> Settings -> General -> "Use Rosetta
-    # for x86_64/amd64 emulation"). selenium/node-chromium is the native ARM option,
-    # but reports browserName "chromium" rather than "chrome".
-    platform: linux/amd64
+    # Defaults to amd64, which is a no-op on Intel Mac, Windows and Linux x86 - they
+    # are already amd64. It matters only on ARM hosts: Chrome has no Linux ARM64 build,
+    # so Apple Silicon runs this under Rosetta (Docker Desktop -> Settings -> General ->
+    # "Use Rosetta for x86_64/amd64 emulation").
+    # Override with DOCKER_PLATFORM=linux/arm64 if you switch to selenium/node-chromium,
+    # which does publish ARM64 but reports browserName "chromium" rather than "chrome".
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     depends_on:
       selenium-hub:
         condition: service_healthy
@@ -51,7 +53,7 @@ services:
     image: selenium/node-firefox:4.26.0
     # Pinned to amd64 to match the rest of the grid. Firefox does publish ARM64
     # images, so this can be dropped if you only ever run Firefox on Apple Silicon.
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     depends_on:
       selenium-hub:
         condition: service_healthy
@@ -76,7 +78,7 @@ services:
     image: selenium/node-edge:4.26.0
     # Edge has no Linux ARM64 build, so this image is amd64-only and runs under
     # Rosetta on Apple Silicon. There is no native ARM alternative for Edge.
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     depends_on:
       selenium-hub:
         condition: service_healthy
