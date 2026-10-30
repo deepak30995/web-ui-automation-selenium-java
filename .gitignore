@@ -45,3 +45,7 @@ src/main/resources/secrets.properties
 ### Generated test output ###
 allure-results/
 test-output/
+
+### Failure watcher runtime state ###
+.watcher.pid
+.watcher-processed

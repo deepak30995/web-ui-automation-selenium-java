@@ -214,7 +214,65 @@ if [ "$PASSED" != true ]; then
     exit 1
 fi
 
-# --- 6. Open a pull request for review ---------------------------------------
+# --- 6. Lead SDET review -----------------------------------------------------
+# The gate in step 2 is a rule; this is a second opinion. A rule cannot notice that a
+# locator finds an element by the very text the test then asserts, or that a "fix"
+# quietly papers over a configuration problem. Read-only: it judges, it cannot edit.
+REVIEW_PROMPT=$(mktemp)
+trap 'rm -f "$PROMPT_FILE" "$REVIEW_PROMPT" verify.log' EXIT
+
+{
+    # Role and standards come from the agent definition, so there is one source of truth
+    sed '1{/^---$/!q;};1,/^---$/d' .claude/agents/lead-sdet.md
+    echo ""
+    echo "## Review this change"
+    echo ""
+    echo "Failure bundle: $BUNDLE"
+    echo "Diagnosis:      $DIAGNOSIS"
+    echo ""
+    echo "The Senior SDET reported:"
+    echo ""
+    cat autofix-summary.md
+    echo ""
+    echo "The diff under review:"
+    echo '```diff'
+    git --no-pager diff --cached -- src
+    git --no-pager diff -- src
+    echo '```'
+    echo ""
+    echo "The failing test was re-run after this change and now passes."
+    echo ""
+    echo "Give your verdict. Begin your reply with exactly one of APPROVE,"
+    echo "APPROVE WITH COMMENT, REQUEST CHANGES or REJECT, then explain in a short"
+    echo "paragraph, quoting the locator or evidence you are reacting to."
+} > "$REVIEW_PROMPT"
+
+echo ""
+echo "=============================================="
+echo " Lead SDET review"
+echo "=============================================="
+claude -p "$(cat "$REVIEW_PROMPT")" --allowedTools "Read,Grep,Glob" | tee review.md
+
+VERDICT=$(head -5 review.md | grep -oE "APPROVE WITH COMMENT|REQUEST CHANGES|APPROVE|REJECT" | head -1)
+echo ""
+echo "Verdict: ${VERDICT:-UNCLEAR}"
+
+case "$VERDICT" in
+    APPROVE|"APPROVE WITH COMMENT")
+        ;;
+    *)
+        echo ""
+        echo "No pull request opened - the Lead SDET did not approve."
+        echo "The change is left on branch $BRANCH for you to decide:"
+        git --no-pager diff --stat -- src | sed 's/^/    /'
+        echo ""
+        echo "Full review: review.md"
+        echo "Discard with: git checkout - && git branch -D $BRANCH"
+        exit 1
+        ;;
+esac
+
+# --- 7. Open a pull request for review ---------------------------------------
 git add src
 git commit -q -F - <<COMMIT
 fix: update stale locator identified by failure diagnosis
@@ -226,10 +284,20 @@ $TEST_TARGET. Review before merging.
 COMMIT
 
 git push -u origin "$BRANCH"
+{
+    cat autofix-summary.md
+    echo ""
+    echo "---"
+    echo ""
+    echo "## Lead SDET review"
+    echo ""
+    cat review.md
+} > pr-body.md
+
 gh pr create --base main \
     --title "Auto-fix: stale locator in $(basename "${BUNDLE%.json}")" \
-    --body-file autofix-summary.md
+    --body-file pr-body.md
 
-rm -f autofix-summary.md
+rm -f autofix-summary.md review.md pr-body.md
 echo ""
 echo "Pull request opened. Review the diff before merging."
