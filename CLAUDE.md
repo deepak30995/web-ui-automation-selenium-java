@@ -13,6 +13,8 @@ mvn clean test -Dbrowser=firefox    # browser:    chrome | firefox | edge | safa
 mvn clean test -Dtarget.env=prod    # site:       staging | prod
 ./analyze-failure.sh                # diagnose the newest failure bundle
 ./fix-failure.sh                    # propose a fix (STALE_LOCATOR verdicts only)
+./watch-failures.sh start           # background watcher: diagnose new failures as they appear
+./review-run.sh                     # lead reviews a completed run and raises work orders
 ```
 
 All four axes combine freely:
@@ -151,6 +153,73 @@ Hard rules, because a wrong fix produces a passing test that verifies the wrong 
 - If the page source shows a different application area than the test targets, that is
   C, not a locator problem.
 - When evidence is thin, answer UNKNOWN. That is a useful result.
+
+## The two agents
+
+Defined in `.claude/agents/`. Available interactively, and used by `fix-failure.sh`.
+
+| Agent | Role | Can edit code? |
+|-------|------|----------------|
+| `lead-sdet` | Takes requirements, writes work orders, reviews changes and reports | **No** |
+| `senior-sdet` | Builds from work orders, diagnoses failures, fixes locators | Yes |
+
+The split is deliberate. A reviewer that can edit stops being a reviewer - it fixes what
+it notices instead of reporting it, and nobody learns the change was weak. Neither can
+merge or push: their Bash access is scoped to `mvn`, `git diff`/`log`/`status` and
+`gh pr view`.
+
+Work flows one way, and the lead bookends it:
+
+```
+you  → lead (requirements) → work order → senior (builds)  → lead (reviews) → you (merge)
+run  → lead (reviews run)  → work order → senior (fixes)   → lead (reviews) → you (merge)
+```
+
+The lead diagnoses; the senior implements. `./review-run.sh` runs the first half of the
+second line: the lead reads the results, retries and failure bundles, works out the root
+cause of anything that failed, and writes a work order per finding.
+
+It reviews **every** run, not only failing ones - a suite that passed only because a
+test was retried is a finding too, and the green tally hides it.
+
+A work order is a fixed shape, so nothing is left to inference:
+
+```
+TASK / SUITE / FILES / STEPS / ASSERTION / DATA / CONSTRAINTS / DONE WHEN
+```
+
+If the lead cannot delegate directly in a given context, it outputs the work order for
+you to hand over. The work order is the deliverable either way.
+
+`fix-failure.sh` runs them in sequence:
+
+```
+STALE_LOCATOR verdict → senior fixes → re-run the test → lead reviews → pull request
+```
+
+The lead's verdict gates the PR. `APPROVE` or `APPROVE WITH COMMENT` opens it;
+`REQUEST CHANGES`, `REJECT`, or an unparseable reply leaves the branch for a human and
+opens nothing. The review is carried into the PR body, so the reasoning travels with
+the change.
+
+The step-2 category gate is a rule; the lead is a second opinion. A rule cannot notice
+that a locator finds an element by the very text the test then asserts.
+
+## Background watcher
+
+`./watch-failures.sh start` polls `test-output/failures/` and diagnoses each new bundle
+as it appears, so a failure is explained without anyone remembering to ask. It seeds its
+state on startup, so bundles already on disk are not re-diagnosed.
+
+```bash
+./watch-failures.sh start          # detached, diagnosis only
+./watch-failures.sh start --fix    # also attempt a repair (still gated, still a PR)
+./watch-failures.sh status         # running? how many handled?
+./watch-failures.sh stop
+```
+
+Diagnosis only by default. `--fix` is opt-in because a repair changes the repository,
+and even then it passes through the same STALE_LOCATOR gate and ends at a pull request.
 
 ## Retries
 

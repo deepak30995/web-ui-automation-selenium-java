@@ -26,7 +26,6 @@ fi
 OUTPUT="${BUNDLE%.json}_diagnosis.md"
 
 PROMPT_FILE=$(mktemp)
-trap 'rm -f "$PROMPT_FILE"' EXIT
 
 # Quoted delimiter keeps this literal; __BUNDLE__ is substituted below.
 cat > "$PROMPT_FILE" <<'PROMPT_END'
@@ -83,7 +82,15 @@ Output markdown with exactly these sections:
 (high / medium / low, plus what extra evidence would raise it)
 PROMPT_END
 
-PROMPT=$(sed "s|__BUNDLE__|$BUNDLE|g" "$PROMPT_FILE")
+# Prepend the Lead SDET role so diagnosis criteria live in one place - the agent
+# definition - rather than being restated here and drifting apart.
+ROLE_FILE=$(mktemp)
+trap 'rm -f "$PROMPT_FILE" "$ROLE_FILE"' EXIT
+sed '1{/^---$/!q;};1,/^---$/d' .claude/agents/lead-sdet.md > "$ROLE_FILE"
+
+PROMPT="$(cat "$ROLE_FILE")
+
+$(sed "s|__BUNDLE__|$BUNDLE|g" "$PROMPT_FILE")"
 
 echo "Diagnosing: $BUNDLE"
 echo ""
