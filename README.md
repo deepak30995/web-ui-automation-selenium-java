@@ -86,6 +86,7 @@ open test-output/extent-reports/
 - [Configuration](#configuration)
 - [Reports](#reports)
 - [Docker Execution](#docker-execution)
+- [Scheduled Runs](#scheduled-runs)
 - [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
 - [Best Practices](#best-practices)
@@ -875,6 +876,107 @@ sources, and no credential in the repository either way.
 
 The diagnosis step skips itself automatically when `ANTHROPIC_API_KEY` is absent, so
 the workflow is usable as plain CI before you add that key.
+
+---
+
+## ⏰ Scheduled Runs
+
+A full run happens daily on a schedule, not only when a pull request is opened.
+
+```bash
+./run-suite.sh
+```
+
+That single command is the entire pipeline:
+
+```
+grid up -> tests -> archive -> prune -> agent review -> email -> exit
+```
+
+### Changing a run
+
+Defaults live in `run.config`, and **the environment always wins** — so nothing in
+the repository needs editing to change what a run does:
+
+```bash
+SUITE_PROFILE=smoke ./run-suite.sh
+SUITE_PROFILE=regression BROWSER=firefox TARGET_ENV=prod ./run-suite.sh
+KEEP_RUNS=10 SEND_EMAIL=true ./run-suite.sh
+```
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `SUITE_PROFILE` | `regression` | smoke, sanity, regression, e2e |
+| `TARGET_ENV` | `staging` | site under test: staging, prod |
+| `TEST_ENV` | `docker` | local, docker, browserstack, lambdatest, saucelabs, aws |
+| `BROWSER` | `chrome` | chrome, firefox, edge, safari |
+| `HEADLESS` | `false` | must stay false when recording video |
+| `RECORD_VIDEO` | `true` | attach the video recorder to the grid |
+| `KEEP_RUNS` | `5` | how many archived runs to retain |
+| `REVIEW_RUN` | `true` | Lead SDET reviews the finished run |
+| `AUTO_FIX` | `false` | Senior SDET may attempt a fix and open a PR |
+| `SEND_EMAIL` | `false` | email the report when the run ends |
+
+### Switching CI provider
+
+The script is the pipeline; CI only calls it.
+
+| File | Role |
+|------|------|
+| `.github/workflows/nightly-tests.yml` | exports environment, runs `./run-suite.sh`, uploads artifacts |
+| `Jenkinsfile` | exports environment, runs `./run-suite.sh`, archives artifacts |
+
+Both do the same three things, and neither contains any logic of its own, so
+moving between them costs one file rather than a rewrite — and they cannot drift
+apart.
+
+### Video
+
+Scheduled runs are **not headless**: the recorder captures a display, so a headless
+browser would produce a blank file. `docker-compose.video.yml` attaches a
+`selenium/video` sidecar to a single named Chrome node and writes `.mp4` files to
+`test-output/videos/`.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.video.yml up -d
+```
+
+### What is kept
+
+Every run is archived, **pass or fail** — a green run is the baseline the next
+failure gets compared against.
+
+```
+test-output/runs/<run-id>/
+├── summary.txt          result, profile, target, totals
+├── report/report.html   Extent report
+├── logs/                automation + maven logs
+├── videos/              session recordings
+├── surefire-reports/    raw TestNG output
+├── failures/            failure bundles (JSON + DOM)
+└── review.md            the Lead SDET's analysis
+```
+
+Retention keeps the newest `KEEP_RUNS` runs and prunes **whole runs** — never by
+file type, because a report without its log and video is hard to act on. On an
+ephemeral CI runner the directory does not outlive the job, so there the
+artifact's `retention-days` plays the same role.
+
+### Email
+
+Off unless `SEND_EMAIL=true`. `notify-email.sh` sends the Lead SDET's summary in
+the body with the Extent report and a zip of the logs attached. It is plain SMTP
+over `python3` rather than a CI-provider mail action, so it works unchanged from
+Actions, Jenkins, cron or a laptop.
+
+Credentials come from the environment only, never from a file in the repository:
+
+```bash
+export SMTP_HOST=smtp.gmail.com SMTP_PORT=587
+export SMTP_USER=you@example.com SMTP_PASSWORD='app-password'
+export EMAIL_TO=you@example.com SEND_EMAIL=true
+./run-suite.sh
+```
 
 ---
 

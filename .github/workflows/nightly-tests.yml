@@ -1,0 +1,107 @@
+# Scheduled run. Deliberately thin: it exports environment and calls
+# ./run-suite.sh, which holds the entire pipeline. Moving to Jenkins is then a
+# change of caller only - see Jenkinsfile, which calls the same script.
+name: Scheduled UI Tests
+
+on:
+  schedule:
+    # 01:30 UTC (07:00 IST), weekdays only - staging is down at weekends, so a
+    # Saturday run would fail for environment reasons and teach us nothing.
+    - cron: '30 1 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Suite profile'
+        type: choice
+        default: regression
+        options: [smoke, sanity, regression, e2e]
+      target:
+        description: 'Site under test'
+        type: choice
+        default: staging
+        options: [staging, prod]
+      browser:
+        description: 'Browser'
+        type: choice
+        default: chrome
+        options: [chrome, firefox, edge]
+      record_video:
+        description: 'Record video'
+        type: boolean
+        default: true
+      auto_fix:
+        description: 'Let the Senior SDET agent attempt a fix on failure'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  scheduled-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      # Inputs are absent on a schedule trigger, so each falls back to a default.
+      SUITE_PROFILE: ${{ inputs.profile  || 'regression' }}
+      TARGET_ENV:    ${{ inputs.target   || 'staging' }}
+      BROWSER:       ${{ inputs.browser  || 'chrome' }}
+      # Tested against github.event_name rather than the input itself: on a
+      # schedule trigger the inputs are null, and in GitHub expressions
+      # `null == false` is true (both cast to 0), which would silently turn
+      # video off on exactly the runs that need it.
+      RECORD_VIDEO:  ${{ github.event_name == 'schedule' && 'true'  || inputs.record_video }}
+      AUTO_FIX:      ${{ github.event_name == 'schedule' && 'false' || inputs.auto_fix }}
+
+      TEST_ENV: docker
+      HEADLESS: 'false'          # a recorder captures a display; headless records nothing
+      RUN_ID: ${{ github.run_number }}-${{ github.run_attempt }}
+      KEEP_RUNS: '5'
+
+      # Runners are x86, so the compose platform pin must not force arm64
+      DOCKER_PLATFORM: linux/amd64
+
+      STAGING_BASE_URL:        ${{ secrets.STAGING_BASE_URL }}
+      PROD_BASE_URL:           ${{ secrets.PROD_BASE_URL }}
+      STAGING_USER_EMAIL:      ${{ secrets.STAGING_USER_EMAIL }}
+      STAGING_USER_PASSWORD:   ${{ secrets.STAGING_USER_PASSWORD }}
+      STAGING_INCORRECT_EMAIL: ${{ secrets.STAGING_INCORRECT_EMAIL }}
+      PROD_USER_EMAIL:         ${{ secrets.PROD_USER_EMAIL }}
+      PROD_USER_PASSWORD:      ${{ secrets.PROD_USER_PASSWORD }}
+      PROD_INCORRECT_EMAIL:    ${{ secrets.PROD_INCORRECT_EMAIL }}
+
+      SEND_EMAIL:    'true'
+      EMAIL_TO:      ${{ secrets.EMAIL_TO }}
+      EMAIL_FROM:    ${{ secrets.EMAIL_FROM }}
+      SMTP_HOST:     ${{ secrets.SMTP_HOST }}
+      SMTP_PORT:     ${{ secrets.SMTP_PORT }}
+      SMTP_USER:     ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: maven
+
+      - name: Run the suite
+        id: run
+        run: ./run-suite.sh
+
+      # Artifacts upload whether the run passed or failed: a green run is the
+      # baseline a later failure gets read against.
+      - name: Upload run archive
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-${{ env.RUN_ID }}
+          path: test-output/runs/
+          # Weekday schedule + 7 days ≈ the newest five runs stay available,
+          # which is the ephemeral-runner equivalent of KEEP_RUNS.
+          retention-days: 7
+          if-no-files-found: warn
