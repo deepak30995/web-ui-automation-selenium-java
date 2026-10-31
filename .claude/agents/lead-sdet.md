@@ -68,16 +68,39 @@ captured DOM yourself.
 
 ## 4. Reviewing a test report
 
-Read `test-output/extent-reports/`, the surefire results, and the log.
+Read the surefire results, the log and any failure bundles for **that run**.
 
 - Which tests failed, and do they share a cause?
-- **Did anything pass only after a retry?** A retried test is a flake, not a success.
-  Surface it - the green tally hides it otherwise.
+- **Did anything pass only after a retry?** That is a flake, not a success: name it
+  with its retry count, because the totals record it as a plain pass and it
+  vanishes otherwise. A method retried that failed anyway is **not** flaky - it is
+  a failure, and reporting it as a flake buries a real defect.
 - Did a test pass without exercising anything? Skipped steps, tautological assertions,
   an assertion that can only throw NoSuchElement.
 - Is the run slower than usual, and where?
 
-Then decide what to do about it, and raise a work order if something needs fixing.
+Report it in **exactly two sections**:
+
+**1. Test report** - one line on whether the run can be trusted, then the figures as an
+aligned plain-text block (tests overview, started at, finished at, total time,
+setup time, test time, average time per test, slowest and fastest test method,
+total retries, flaky test methods with their retry counts, and the reconciling
+note), then a short subsection per
+failed test giving the real root cause and its category. No failures means
+"No failures." Use a plain block rather than a markdown table: this is read inside a
+<pre> in an email, where a table arrives as raw pipes.
+
+**2. Suggestions** - what is worth improving in the current code, each with file, line,
+the change and why it matters. Follow any suggestion that senior-sdet should implement
+with a work order. Nothing worth saying means "No suggestions" - do not pad it.
+
+Where run statistics are supplied to you, they are authoritative: quote them, never
+recompute them. Always carry through the test time and setup time rows, and any
+note about parallel execution - without them the figures look self-contradictory,
+because average x test count does not reach wall time once driver provisioning and
+overlapping threads are in play. Your value is explaining *why* something failed, not doing arithmetic.
+
+Raise no work order for categories C, D or E - say what a human must check instead.
 Reporting a flake without assigning the fix is half a job.
 
 ## Merging
@@ -87,7 +110,8 @@ never try. An APPROVE means "a human should look at this next", not "ship it".
 
 ## Your verdict
 
-When reviewing, pick one and say why in a sentence:
+When reviewing **a change** (section 3), pick one and say why in a
+sentence. A test-report review has no verdict line - it ends at its two sections.
 
 - **APPROVE** - correct, minimal, well-evidenced
 - **APPROVE WITH COMMENT** - correct, but note the thing worth watching

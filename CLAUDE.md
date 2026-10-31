@@ -11,6 +11,7 @@ mvn clean test -Psmoke              # test type:  smoke | sanity | regression | 
 mvn clean test -Dtest.env=docker    # runs on:    local | docker | browserstack | lambdatest | saucelabs | aws
 mvn clean test -Dbrowser=firefox    # browser:    chrome | firefox | edge | safari
 mvn clean test -Dtarget.env=prod    # site:       staging | prod
+./run-suite.sh                      # one complete scheduled run (see Scheduled runs)
 ./analyze-failure.sh                # diagnose the newest failure bundle
 ./fix-failure.sh                    # propose a fix (STALE_LOCATOR verdicts only)
 ./watch-failures.sh start           # background watcher: diagnose new failures as they appear
@@ -48,6 +49,7 @@ layer, which must stay free of TestNG imports (TestNG is `<scope>test</scope>`).
 | Page Object | `src/test/java/pages` | Locators, actions on one page | Step numbers, assertions |
 | Base | `src/test/java/base` | Waits, clicks, frame navigation | Anything page-specific |
 | Utilities | `src/main/java/utils` | Driver, config, reporting | Test or page knowledge |
+| Test data | `src/test/resources/testdata` | Expected text, per feature | Credentials, framework settings |
 
 ## Conventions
 
@@ -64,6 +66,30 @@ layer, which must stay free of TestNG imports (TestNG is `<scope>test</scope>`).
   resolves relative to the current context and would otherwise fail on a second call.
 - Prefer stable locators (`id`, `data-*`) over class lists or deep XPath. Hashed
   CSS-module classes (e.g. `signup_lable_nr1k1`) regenerate on frontend builds.
+
+## Adding a feature — what you touch, and what you must not
+
+A new feature or product is **three files and no framework change**:
+
+| | |
+|---|---|
+| `src/test/java/pages/<Name>Page.java` | locators and actions |
+| `src/test/java/tests/<Name>Test.java` | flow, assertions, group tags |
+| `src/test/resources/testdata/<name>.properties` | expected text and data |
+
+Nothing registers them. Suites scan the `tests` package, so a tagged method is
+picked up by its profile automatically, and `ConfigReader` merges **every**
+`testdata/*.properties` on the classpath at startup — the framework never names
+the files, it loads whatever is in the directory.
+
+So `src/main/java` must stay free of page and test knowledge. It is currently
+clean, and that is load-bearing rather than tidiness: generated page and test
+files have to drop in and work.
+
+Feature data belongs in `testdata/`, not in `config.properties`. The config files
+are per execution environment and there are seven of them — a feature key put
+there has to be copied into all seven and will drift. Data keys support the same
+`${VAR}` placeholders and `.staging`/`.prod` suffixes as the main config.
 
 ## Conditionally rendered elements — read before "fixing" a missing element
 
@@ -179,6 +205,46 @@ The lead diagnoses; the senior implements. `./review-run.sh` runs the first half
 second line: the lead reads the results, retries and failure bundles, works out the root
 cause of anything that failed, and writes a work order per finding.
 
+The report has **two sections**: `1. Test report` - whether the run can be trusted,
+the figures, and the real cause of each failure - and `2. Suggestions` - what is worth
+improving, each with a work order where senior-sdet should act. Nothing else: no
+separate verdict section, which belongs to change reviews only.
+
+The figures come from `run_stats.py`, which parses `testng-results.xml` for counts,
+start and finish times with timezone, total/setup/test time, average per test, the
+slowest and fastest test method, total retries and the flaky methods.
+
+**A flaky method is one that was retried and then passed.** A method retried that
+failed anyway is a failure, not a flake, and is reported in the failure breakdown with
+its retry count - filing a real defect under a heading people skim past is how it gets
+missed. Retried attempts are collapsed per method, so a test retried twice counts once
+and its time is the total it consumed; otherwise it would count as three tests and skew
+the average. Retries are counted from two sources - `RetryAnalyzer`'s own log lines, which
+name the method and attempt, and duplicate entries in the results XML - taking the
+higher per method. The log alone misses retries once it has rolled; the XML alone is
+fragile, because how TestNG represents a retried attempt has changed between versions.
+Naming them matters because the totals count a retried-then-passed test as a plain
+pass, so it vanishes from the report otherwise.
+
+Total time equals setup plus test only when the suite ran sequentially, and the `Note`
+row says which case applies. Under `parallel="methods"` the work overlaps, so the
+durations sum past the clock; the note then gives peak concurrency and states that
+total time is the span from first start to last finish. It reports peak concurrency
+rather than naming a critical path: TestNG records no thread id, and reconstructing
+threads by interval packing yields *a* valid arrangement rather than the real one - it
+produced a confident, wrong path on a run where setup times were even.
+Computed rather than left to the agent, because arithmetic over XML is what an LLM gets
+subtly wrong while still reading correctly. Config methods are excluded from the
+average - driver setup can take as long as the test, and averaging it in makes every
+suite look slow. The agent is told these numbers are authoritative and must be quoted,
+not recomputed.
+
+Pass `./review-run.sh <run-dir>` to review an archived run. Without it the live build
+output is reviewed, which is right after an ad-hoc `mvn test` but wrong for a scheduled
+run: `test-output/failures/` persists, so the lead would be handed bundles from earlier
+runs and would diagnose bugs that were fixed days ago. `run-suite.sh` always passes the
+run directory.
+
 It reviews **every** run, not only failing ones - a suite that passed only because a
 test was retried is a finding too, and the green tally hides it.
 
@@ -220,6 +286,46 @@ state on startup, so bundles already on disk are not re-diagnosed.
 
 Diagnosis only by default. `--fix` is opt-in because a repair changes the repository,
 and even then it passes through the same STALE_LOCATOR gate and ends at a pull request.
+
+## Scheduled runs
+
+`./run-suite.sh` is one complete run:
+
+```
+grid up -> tests -> archive -> prune -> agent review -> email -> exit
+```
+
+It runs daily on a schedule, not only on a pull request. Defaults live in
+`run.config`; **the environment always wins**, so nothing needs editing to change
+a run:
+
+```bash
+SUITE_PROFILE=smoke BROWSER=firefox ./run-suite.sh
+```
+
+**The script is the pipeline. CI only calls it.** `.github/workflows/nightly-tests.yml`
+and `Jenkinsfile` both export environment and run `./run-suite.sh` — that is the
+whole difference between them. Moving CI provider is a new caller, not a rewrite,
+and the two cannot drift apart because neither holds any logic.
+
+Scheduled runs are **not headless**. The recorder captures a display, so a headless
+browser records a blank file. `HEADLESS=false` is therefore deliberate, not an
+oversight.
+
+Every run is archived under `test-output/runs/<id>/` — report, logs, video,
+surefire results, failure bundles and the agent review — **whether it passed or
+failed**. A green run is the baseline the next failure gets read against, so
+discarding it loses the comparison.
+
+Retention is `KEEP_RUNS` (default 5) and prunes **whole runs**, oldest by
+modification time. Never prune by file type: a report without its log and video
+is hard to act on. On an ephemeral CI runner the directory does not survive the
+job, so there `retention-days` on the uploaded artifact plays the same role.
+
+Email is off unless `SEND_EMAIL=true`. `notify-email.sh` is plain SMTP over
+`python3` rather than a CI-provider mail action, for the same portability reason.
+Credentials come from the environment only — `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+`SMTP_PASSWORD` — and never from a file in the repository.
 
 ## Retries
 

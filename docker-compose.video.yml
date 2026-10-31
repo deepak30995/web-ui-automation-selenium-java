@@ -1,0 +1,40 @@
+# Video recording overlay.
+#
+# Use alongside the base file when you want the run captured:
+#   docker compose -f docker-compose.yml -f docker-compose.video.yml up -d
+#
+# The recorder attaches to ONE named node and captures its display, so the chrome
+# node is pinned to a single replica with a fixed container name here. Recording
+# every replica would need one recorder per node.
+#
+# Videos land in ./test-output/videos as <session-id>.mp4.
+
+services:
+  chrome-node:
+    container_name: selenium-chrome
+    environment:
+      # One session at a time: a recorder captures a display, not a session, so
+      # parallel sessions on one node would overlap in a single video file.
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      # Name the file after the Selenium session so a video maps to a test
+      - SE_VIDEO_FILE_NAME=auto
+    deploy:
+      replicas: 1
+
+  chrome-video:
+    image: selenium/video:ffmpeg-7.1-20241101
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    depends_on:
+      - chrome-node
+    environment:
+      - DISPLAY_CONTAINER_NAME=selenium-chrome
+      - SE_VIDEO_FILE_NAME=auto
+      - SE_NODE_GRID_URL=http://selenium-hub:4444
+      # Record only while a session is live, so idle time is not captured
+      - SE_RECORD_VIDEO=true
+      - SE_VIDEO_FOLDER=/videos
+    volumes:
+      - ./test-output/videos:/videos
+    networks:
+      - selenium-grid

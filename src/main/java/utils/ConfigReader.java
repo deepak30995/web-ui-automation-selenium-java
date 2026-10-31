@@ -1,7 +1,11 @@
 package utils;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
+import java.util.Arrays;
 import java.util.Properties;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,6 +21,9 @@ public class ConfigReader {
 
     /** Optional, git-ignored file holding credential values for local runs. */
     private static final String SECRETS_FILE = "secrets.properties";
+
+    /** Classpath directory holding per-feature test data, merged at load time. */
+    private static final String TEST_DATA_DIR = "testdata";
     private static Properties secrets = new Properties();
 
     static {
@@ -77,10 +84,68 @@ public class ConfigReader {
             logger.info("Configuration loaded from: {}", currentConfigFile);
             logger.info("Total properties loaded: {}", properties.size());
 
+            loadTestData();
+
         } catch (IOException e) {
             logger.error("Error loading configuration: {}", e.getMessage());
             properties = new Properties();
             throw new RuntimeException("Failed to load configuration", e);
+        }
+    }
+
+    /**
+     * Merge every {@code testdata/*.properties} file on the classpath into the
+     * configuration.
+     *
+     * <p>Feature-specific data - expected messages, header text, search terms - lives
+     * in its own file per feature rather than in {@code config.properties}. Adding a
+     * new product or feature is then a page class, a test class and a data file, with
+     * no edit to any shared file. The framework never names them: whatever is in the
+     * directory is loaded.
+     *
+     * <p>Keys are read through the normal {@link #getProperty} path afterwards, so
+     * {@code ${VAR}} placeholders and {@code .staging}/{@code .prod} suffixes behave
+     * exactly as they do in the main config.
+     */
+    private static void loadTestData() {
+        try {
+            URL dir = ConfigReader.class.getClassLoader().getResource(TEST_DATA_DIR);
+            if (dir == null) {
+                logger.debug("No {} directory on the classpath - skipping test data", TEST_DATA_DIR);
+                return;
+            }
+            if (!"file".equals(dir.getProtocol())) {
+                logger.debug("{} is not an exploded directory - skipping test data", TEST_DATA_DIR);
+                return;
+            }
+
+            File[] files = new File(dir.toURI()).listFiles(
+                    (d, name) -> name.endsWith(".properties"));
+            if (files == null || files.length == 0) {
+                logger.debug("No test data files in {}", TEST_DATA_DIR);
+                return;
+            }
+            Arrays.sort(files);   // deterministic order, so a collision resolves the same way twice
+
+            for (File file : files) {
+                Properties data = new Properties();
+                try (InputStream in = new FileInputStream(file)) {
+                    data.load(in);
+                }
+                for (String key : data.stringPropertyNames()) {
+                    if (properties.containsKey(key)) {
+                        logger.warn("Test data key '{}' in {} overrides an existing value",
+                                key, file.getName());
+                    }
+                    properties.setProperty(key, data.getProperty(key));
+                }
+                logger.info("Test data loaded from {}: {} keys", file.getName(), data.size());
+            }
+
+        } catch (Exception e) {
+            // Missing or malformed test data must not stop the suite booting - the
+            // test that needs the key fails with a clear message instead.
+            logger.error("Could not load test data: {}", e.getMessage());
         }
     }
 

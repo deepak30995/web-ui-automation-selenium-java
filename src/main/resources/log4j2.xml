@@ -6,8 +6,17 @@
             <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%level] %logger{36} - %msg%n"/>
         </Console>
 
-        <!-- File Appender -->
-        <File name="FileAppender" fileName="test-output/logs/automation.log">
+        <!-- File Appender.
+
+             append="false" truncates at JVM start, so automation.log holds THIS
+             run and nothing else. It defaulted to appending, which meant the file
+             had grown since September: every archived run then carried the whole
+             history instead of its own log, and the Lead SDET read weeks-old
+             retries out of it and reported them as findings for the current run.
+
+             No history is lost - RollingFileAppender below keeps it, rolled daily
+             with the last 10 archives retained. -->
+        <File name="FileAppender" fileName="test-output/logs/automation.log" append="false">
             <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%level] %logger{36} - %msg%n"/>
         </File>
 
