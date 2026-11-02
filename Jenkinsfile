@@ -8,8 +8,14 @@ pipeline {
     agent any
 
     triggers {
-        // 01:30, weekdays only - staging is down at weekends
-        cron('30 1 * * 1-5')
+        // 01:30 UTC (07:00 IST), weekdays only - staging is down at weekends.
+        //
+        // TZ is explicit because Jenkins cron defaults to the controller's local
+        // timezone while GitHub cron is always UTC. Without it the same '30 1'
+        // string means 01:30 IST here and 07:00 IST there - the two CI
+        // definitions would silently run five and a half hours apart.
+        cron('''TZ=Etc/UTC
+30 1 * * 1-5''')
     }
 
     parameters {
@@ -37,9 +43,21 @@ pipeline {
         KEEP_RUNS       = '5'
         DOCKER_PLATFORM = 'linux/amd64'
 
-        BASE_URL_CREDS  = credentials('staging-base-url')
-        USER_CREDS      = credentials('staging-user')      // username = email, password = password
-        SMTP_CREDS      = credentials('smtp-user')
+        // Both environments are bound on every build. Which one is used is
+        // TARGET_ENV's job, resolved by ConfigReader - binding only the selected
+        // one would need conditional Groovy here and would drift from the
+        // GitHub workflow, which also exports both.
+        //
+        // A single-value credential binds straight to the name ConfigReader
+        // wants, so it needs no export below. A username/password pair binds as
+        // <NAME>_USR and <NAME>_PSW, so those are renamed in the shell step.
+        STAGING_BASE_URL        = credentials('staging-base-url')
+        PROD_BASE_URL           = credentials('prod-base-url')
+        STAGING_INCORRECT_EMAIL = credentials('staging-incorrect-email')
+        PROD_INCORRECT_EMAIL    = credentials('prod-incorrect-email')
+        STAGING_USER_CREDS      = credentials('staging-user')
+        PROD_USER_CREDS         = credentials('prod-user')
+        SMTP_CREDS              = credentials('smtp-user')
         EMAIL_TO        = 'deepak.kumar@graphy.com'
         SEND_EMAIL      = 'true'
         SMTP_HOST       = 'smtp.gmail.com'
@@ -50,9 +68,10 @@ pipeline {
         stage('Run suite') {
             steps {
                 sh '''
-                    export STAGING_BASE_URL="$BASE_URL_CREDS"
-                    export STAGING_USER_EMAIL="$USER_CREDS_USR"
-                    export STAGING_USER_PASSWORD="$USER_CREDS_PSW"
+                    export STAGING_USER_EMAIL="$STAGING_USER_CREDS_USR"
+                    export STAGING_USER_PASSWORD="$STAGING_USER_CREDS_PSW"
+                    export PROD_USER_EMAIL="$PROD_USER_CREDS_USR"
+                    export PROD_USER_PASSWORD="$PROD_USER_CREDS_PSW"
                     export SMTP_USER="$SMTP_CREDS_USR"
                     export SMTP_PASSWORD="$SMTP_CREDS_PSW"
                     export EMAIL_FROM="$SMTP_CREDS_USR"

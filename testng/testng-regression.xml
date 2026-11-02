@@ -6,7 +6,7 @@
      ThreadLocal), but parallel execution is not yet verified end to end on a real
      run, so opt in deliberately rather than by default:
          parallel="methods" thread-count="3"  -->
-<suite name="Regression Run" verbose="1" parallel="methods" thread-count="3">
+<suite name="Regression Run" verbose="1" parallel="methods" thread-count="1">
 
     <listeners>
         <!-- Applies RetryAnalyzer to every test, so new tests never miss it -->
