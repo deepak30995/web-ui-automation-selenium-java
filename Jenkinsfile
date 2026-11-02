@@ -58,10 +58,18 @@ pipeline {
         STAGING_USER_CREDS      = credentials('staging-user')
         PROD_USER_CREDS         = credentials('prod-user')
         SMTP_CREDS              = credentials('smtp-user')
-        EMAIL_TO        = 'deepak.kumar@graphy.com'
-        SEND_EMAIL      = 'true'
-        SMTP_HOST       = 'smtp.gmail.com'
-        SMTP_PORT       = '587'
+
+        // Recipient and mail server come from credentials too. They are not
+        // secrets in the password sense, but this repository is public and an
+        // address committed here is an address anyone can read - and a hostname
+        // committed here is one more thing to edit per user. The GitHub workflow
+        // reads the same three from secrets, so neither caller holds them.
+        EMAIL_TO                = credentials('email-to')
+        SMTP_HOST               = credentials('smtp-host')
+        SMTP_PORT               = credentials('smtp-port')
+
+        // Behaviour, not data: CI always mails its result. Safe to state here.
+        SEND_EMAIL              = 'true'
     }
 
     stages {
