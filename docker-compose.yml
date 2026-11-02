@@ -22,6 +22,10 @@ services:
 
   chrome-node:
     image: selenium/node-chrome:4.26.0
+    # Every node sits behind a profile, so a run starts only the browser it
+    # tests. run-suite.sh passes --profile "$BROWSER"; three idle browser nodes
+    # were costing more memory than the grid itself.
+    profiles: ["chrome"]
     # Defaults to amd64, which is a no-op on Intel Mac, Windows and Linux x86 - they
     # are already amd64. It matters only on ARM hosts: Chrome has no Linux ARM64 build,
     # so Apple Silicon runs this under Rosetta (Docker Desktop -> Settings -> General ->
@@ -47,10 +51,13 @@ services:
     networks:
       - selenium-grid
     deploy:
-      replicas: 2
+      # One node covers thread-count=3 on its own: SE_NODE_MAX_SESSIONS=4 above
+      # is per node, so a second replica advertised capacity nothing could use.
+      replicas: 1
 
   firefox-node:
     image: selenium/node-firefox:4.26.0
+    profiles: ["firefox"]
     # Pinned to amd64 to match the rest of the grid. Firefox does publish ARM64
     # images, so this can be dropped if you only ever run Firefox on Apple Silicon.
     platform: ${DOCKER_PLATFORM:-linux/amd64}
@@ -76,6 +83,7 @@ services:
 
   edge-node:
     image: selenium/node-edge:4.26.0
+    profiles: ["edge"]
     # Edge has no Linux ARM64 build, so this image is amd64-only and runs under
     # Rosetta on Apple Silicon. There is no native ARM alternative for Edge.
     platform: ${DOCKER_PLATFORM:-linux/amd64}

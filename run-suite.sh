@@ -24,6 +24,16 @@ RUN_DIR="$RUNS_DIR/$RUN_ID"
 COMPOSE_FILES=(-f docker-compose.yml)
 [ "$RECORD_VIDEO" = "true" ] && COMPOSE_FILES+=(-f docker-compose.video.yml)
 
+# Start only the node for the browser under test. Every node service carries a
+# compose profile, so without this the grid comes up empty. Passed as a global
+# flag, so `down` and `logs` scope to the same set as `up`.
+# Safari has no grid node - it is a local-only browser - so it is not mapped.
+case "$BROWSER" in
+    chrome|firefox|edge) COMPOSE_FILES+=(--profile "$BROWSER") ;;
+    *) echo "ERROR: browser '$BROWSER' has no Docker grid node (chrome|firefox|edge)" >&2
+       exit 1 ;;
+esac
+
 log()  { echo "$(date '+%H:%M:%S')  $*"; }
 step() { echo; echo "=== $* ==="; }
 
