@@ -49,3 +49,4 @@ test-output/
 ### Failure watcher runtime state ###
 .watcher.pid
 .watcher-processed
+.idea/inspectionProfiles/

@@ -80,6 +80,10 @@ jobs:
       SMTP_USER:     ${{ secrets.SMTP_USER }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
 
+      # Authenticates the Lead SDET review inside run-suite.sh. Same secret
+      # ui-tests.yml already uses for failure diagnosis.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -88,6 +92,14 @@ jobs:
           java-version: '17'
           distribution: temurin
           cache: maven
+
+      # run-suite.sh gates the review on `command -v claude`, and a GitHub runner
+      # has no Claude CLI - so without this the report arrives with its most
+      # useful section reading "review step disabled or unavailable". Skipped
+      # when the key is absent, so the workflow still runs as plain CI.
+      - name: Install Claude CLI
+        if: env.ANTHROPIC_API_KEY != ''
+        run: npm install -g @anthropic-ai/claude-code
 
       - name: Run the suite
         id: run

@@ -79,16 +79,18 @@ public class BaseTest {
 
     @BeforeMethod(alwaysRun = true)
     public void setUp(java.lang.reflect.Method method) {
+        // Created before anything that can throw, so a setUp failure still has a
+        // report node to be recorded against. Driver creation used to come first,
+        // which left a failure there invisible to the report entirely.
+        String environment = ConfigReader.getProperty("environment", "UNKNOWN");
+        currentTest.set(ExtentReportManager.createTest(
+                method.getName(),
+                "Test executed on " + environment + " environment"
+        ));
+
         try {
             // Initialize driver using unified manager
             currentDriver.set(UnifiedDriverManager.getDriver());
-
-            // Create extent test with environment info
-            String environment = ConfigReader.getProperty("environment", "UNKNOWN");
-            currentTest.set(ExtentReportManager.createTest(
-                    method.getName(),
-                    "Test executed on " + environment + " environment"
-            ));
 
             // Navigate to base URL
             String baseUrl = ConfigReader.getBaseUrl();
@@ -126,6 +128,39 @@ public class BaseTest {
 
                 UnifiedDriverManager.markTestStatus("failed", result.getThrowable().getMessage());
                 getTest().fail("Test failed: " + result.getThrowable().getMessage());
+
+            } else if (result.getStatus() == ITestResult.SKIP) {
+                // A @BeforeMethod failure arrives here, not as FAILURE: TestNG
+                // skips the test method itself and records the config exception
+                // on the result. Without this branch the Extent node kept its
+                // default status and rendered as a PASS - so a run where nothing
+                // executed was emailed with a report claiming every test passed,
+                // and no screenshot or failure bundle was written for the agents
+                // to read. Reported as a failure, not a skip, to match the suite
+                // result: surefire counts this as a failure and so does the email.
+                Throwable cause = result.getThrowable();
+                if (cause != null) {
+                    String screenshotPath = captureScreenshot(method.getName());
+                    if (screenshotPath != null) {
+                        ExtentReportManager.addScreenshot(getTest(), screenshotPath, "Setup failure screenshot");
+                    }
+                    FailureReporter.capture(getDriver(), method.getName(), cause, screenshotPath);
+
+                    // setUp wraps the real error in a RuntimeException naming the
+                    // test, so cause.getMessage() reads "Failed to setup test: X"
+                    // and says nothing about why. Report the root instead.
+                    Throwable root = cause;
+                    while (root.getCause() != null) {
+                        root = root.getCause();
+                    }
+                    String reason = root.getClass().getSimpleName() + ": " + root.getMessage();
+
+                    UnifiedDriverManager.markTestStatus("failed", reason);
+                    getTest().fail("Setup failed - " + reason);
+                } else {
+                    // A deliberate skip - a group filter or dependsOnMethods.
+                    getTest().skip("Test skipped");
+                }
             }
 
             // Quit driver
