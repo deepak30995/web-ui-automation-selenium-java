@@ -63,11 +63,12 @@ public class LoginTest extends BaseTest {
         LoginPage loginPage = new LoginPage();
         String toastMessage = ConfigReader.getProperty("incorrect.email.and.incorrect.password.error.toast.message");
         String incorrectEmail = ConfigReader.getForTarget("test.incorrect.email");
+        String incorrectPassword = ConfigReader.getProperty("test.incorrect.password");
         loginPage.clickOnAcceptCookies();
         loginPage.clickLoginButtonFromHomePage();
         loginPage.clickContinueWithEmailButton();
         loginPage.enterEmail(incorrectEmail);
-        loginPage.enterPassword("IncorrectPassword");
+        loginPage.enterPassword(incorrectPassword);
         loginPage.clickNextButton();
 
         String errorMessage = loginPage.getErrorMessageForIncorrectCredentials();
@@ -82,11 +83,12 @@ public class LoginTest extends BaseTest {
 
         String toastMessage = ConfigReader.getProperty("correct.email.and.incorrect.password.error.toast.message");
         String correctEmail = ConfigReader.getForTarget("test.user.email");
+        String incorrectPassword = ConfigReader.getProperty("test.incorrect.password");
         loginPage.clickOnAcceptCookies();
         loginPage.clickLoginButtonFromHomePage();
         loginPage.clickContinueWithEmailButton();
         loginPage.enterEmail(correctEmail);
-        loginPage.enterPassword("IncorrectPassword");
+        loginPage.enterPassword(incorrectPassword);
         loginPage.clickNextButton();
 
         String errorMessage = loginPage.getErrorMessageForIncorrectCredentials();

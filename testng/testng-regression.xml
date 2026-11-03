@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
 
-<!-- Full coverage. Sequential by default.
-     The framework is thread-safe (driver, page objects and the Extent node are all
-     ThreadLocal), but parallel execution is not yet verified end to end on a real
-     run, so opt in deliberately rather than by default:
-         parallel="methods" thread-count="3"  -->
-<suite name="Regression Run" verbose="1" parallel="methods" thread-count="1">
+<!-- Full coverage, run sequentially.
+     The framework is thread-safe - driver, page objects and the Extent node are
+     all ThreadLocal - so parallel execution is available when it is wanted. It is
+     deliberately not enabled: one browser session at a time keeps timings stable,
+     which matters more than wall clock while the suite is this small. To turn it
+     on, add parallel="methods" thread-count="3" to the suite element below, and
+     raise the grid's SE_NODE_MAX_SESSIONS to match.
+
+     Note parallel="methods" with thread-count="1" is not the same as omitting it:
+     it still runs through the parallel executor for no benefit. Omitting both is
+     what sequential means here. -->
+<suite name="Regression Run" verbose="1">
 
     <listeners>
         <!-- Applies RetryAnalyzer to every test, so new tests never miss it -->
