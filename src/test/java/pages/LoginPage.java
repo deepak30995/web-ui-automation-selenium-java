@@ -38,7 +38,15 @@ public class LoginPage extends BasePage {
     @FindBy(id = "collabIframe")
     private WebElement myCoursesIframe;
 
-    @FindBy(xpath = "//h5[text()='Courses']")
+    // Anchored on the app bar, not on the heading's own text. Selecting by
+    // text='Courses' and then asserting that same text meant the assertion could
+    // never fail: a renamed heading matched nothing, so it surfaced as
+    // NoSuchElementException - retried as a WebDriverException, diagnosed as a
+    // STALE_LOCATOR, and a candidate for fix-failure.sh to "repair" by adopting
+    // the new text. The product change would have been papered over.
+    // There is no id or data-* on or above the heading; app-bar-elevation is the
+    // only semantic, unique anchor the page offers.
+    @FindBy(xpath = "//div[contains(@class,'app-bar-elevation')]//h5")
     private WebElement activeCourseHeaderText;
 
     @FindBy(xpath = "//iframe[@id='microfe-popup-login']")
