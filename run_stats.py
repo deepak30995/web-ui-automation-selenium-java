@@ -104,20 +104,27 @@ def _concurrency(root):
     return max(peak, 1)
 
 
+# Which attempt speaks for the method, highest first. PASS wins because a method
+# that went green on a retry did pass. FAIL beats SKIP because TestNG records the
+# attempt it is about to retry as SKIP: taking the first entry would report a test
+# that was retried and then failed outright as "skipped".
+_STATUS_RANK = {"PASS": 2, "FAIL": 1, "SKIP": 0}
+
+
 def _final_status(root):
     """Final outcome per method name.
 
-    A retried method is recorded more than once, so the entries must be collapsed:
-    if any attempt passed, the method passed - that is the run's actual outcome.
+    A retried method is recorded more than once, so the entries must be collapsed
+    to the one that is the run's actual outcome for that method.
     """
     status = {}
     for m in root.iter("test-method"):
         if m.get("is-config") == "true":
             continue
         name, st = m.get("name"), m.get("status")
-        if status.get(name) == "PASS":
-            continue
-        status[name] = "PASS" if st == "PASS" else status.get(name, st)
+        best = status.get(name)
+        if best is None or _STATUS_RANK.get(st, 0) > _STATUS_RANK.get(best, 0):
+            status[name] = st
     return status
 
 
@@ -169,18 +176,27 @@ def collect(surefire_dir, log_file=None):
                     msg = msg[:300] + " ..."
             failures.append({
                 "name": m.get("name"),
-                "status": m.get("status"),
-                "duration": int(m.get("duration-ms", 0)),
+                # From the collapsed view, for the same reason the headline is:
+                # this attempt may be recorded SKIP only because a retry followed,
+                # and its duration is one attempt rather than what the method cost.
+                "status": final.get(m.get("name"), m.get("status")),
+                "duration": by_name[m.get("name")]["ms"],
                 "exception": exc.get("class") if exc is not None else "",
                 "message": msg,
                 "retries": retries.get(m.get("name"), 0),
             })
 
     return {
-        "total": int(root.get("total", 0)),
-        "passed": int(root.get("passed", 0)),
-        "failed": int(root.get("failed", 0)),
-        "skipped": int(root.get("skipped", 0)),
+        # Counted from the collapsed per-method outcomes, not from the attributes
+        # on <testng-results>. Those count attempts in `total` but not in the
+        # pass/fail/skip buckets, so a run with retries printed a headline whose
+        # figures did not add up - 7 total, 1 passed, 2 failed - and disagreed
+        # with surefire. Everything else here is already collapsed per method;
+        # these four now are too.
+        "total": len(final),
+        "passed": sum(1 for st in final.values() if st == "PASS"),
+        "failed": sum(1 for st in final.values() if st == "FAIL"),
+        "skipped": sum(1 for st in final.values() if st == "SKIP"),
         "suite_name": suite.get("name") if suite is not None else "",
         "started": suite.get("started-at") if suite is not None else "",
         "finished": suite.get("finished-at") if suite is not None else "",
