@@ -40,6 +40,17 @@ public class BaseTest {
     // Held per thread so parallel tests never overwrite each other's report node
     private static final ThreadLocal<ExtentTest> currentTest = new ThreadLocal<>();
 
+    /**
+     * Whether setUp ran to completion for the test on this thread.
+     *
+     * TestNG reports an attempt that RetryAnalyzer is about to re-run with status
+     * SKIP - the very status a @BeforeMethod failure produces - so the status alone
+     * cannot tell the two apart. Without this flag tearDown called every retried
+     * test "Setup failed", which pointed the reader at driver setup for a failure
+     * that happened mid-test.
+     */
+    private static final ThreadLocal<Boolean> setupCompleted = ThreadLocal.withInitial(() -> false);
+
     private static final Logger logger = LogManager.getLogger(BaseTest.class);
 
     // Set once per suite, not per test method
@@ -87,6 +98,7 @@ public class BaseTest {
                 method.getName(),
                 "Test executed on " + environment + " environment"
         ));
+        setupCompleted.set(false);
 
         try {
             // Initialize driver using unified manager
@@ -104,6 +116,8 @@ public class BaseTest {
 
             getTest().info(String.format("Test started: %s | Environment: %s | Mode: %s | Browser: %s",
                     method.getName(), environment, executionMode, browser));
+
+            setupCompleted.set(true);
 
         } catch (Exception e) {
             logger.error("Error in test setup: {}", e.getMessage(), e);
@@ -130,36 +144,44 @@ public class BaseTest {
                 getTest().fail("Test failed: " + result.getThrowable().getMessage());
 
             } else if (result.getStatus() == ITestResult.SKIP) {
-                // A @BeforeMethod failure arrives here, not as FAILURE: TestNG
-                // skips the test method itself and records the config exception
-                // on the result. Without this branch the Extent node kept its
-                // default status and rendered as a PASS - so a run where nothing
-                // executed was emailed with a report claiming every test passed,
-                // and no screenshot or failure bundle was written for the agents
-                // to read. Reported as a failure, not a skip, to match the suite
-                // result: surefire counts this as a failure and so does the email.
+                // Three different things arrive here with this one status, and they
+                // need three different reports:
+                //
+                //  - a @BeforeMethod failure. TestNG skips the test method itself and
+                //    records the config exception on the result. Without this branch
+                //    the Extent node kept its default status and rendered as a PASS,
+                //    so a run where nothing executed was emailed as all green.
+                //  - an attempt RetryAnalyzer is about to re-run. It failed inside the
+                //    test, not in setUp, and setupCompleted is what says so.
+                //  - a deliberate skip from a group filter or dependsOnMethods, which
+                //    carries no throwable.
+                //
+                // The first two are reported as failures, not skips, to match the
+                // suite result: surefire counts them as failures and so does the email.
                 Throwable cause = result.getThrowable();
-                if (cause != null) {
+                if (cause == null) {
+                    getTest().skip("Test skipped");
+                } else {
+                    boolean setupFailed = !setupCompleted.get();
+
                     String screenshotPath = captureScreenshot(method.getName());
                     if (screenshotPath != null) {
-                        ExtentReportManager.addScreenshot(getTest(), screenshotPath, "Setup failure screenshot");
+                        ExtentReportManager.addScreenshot(getTest(), screenshotPath,
+                                setupFailed ? "Setup failure screenshot" : "Failure screenshot");
                     }
                     FailureReporter.capture(getDriver(), method.getName(), cause, screenshotPath);
 
-                    // setUp wraps the real error in a RuntimeException naming the
-                    // test, so cause.getMessage() reads "Failed to setup test: X"
-                    // and says nothing about why. Report the root instead.
-                    Throwable root = cause;
-                    while (root.getCause() != null) {
-                        root = root.getCause();
-                    }
-                    String reason = root.getClass().getSimpleName() + ": " + root.getMessage();
+                    // Only a setUp failure is unwrapped, because only setUp wraps:
+                    // it throws RuntimeException("Failed to setup test: X"), whose
+                    // message says nothing about why. A test failure must be reported
+                    // as thrown - unwrapping a TimeoutException discards "tried for
+                    // 30 second(s)" and surfaces the NoSuchElementException the wait
+                    // was swallowing, which reads as a stale locator and is not one.
+                    String reason = setupFailed ? describeRootCause(cause) : cause.getMessage();
+                    String label = setupFailed ? "Setup failed - " : "Test failed (retried): ";
 
                     UnifiedDriverManager.markTestStatus("failed", reason);
-                    getTest().fail("Setup failed - " + reason);
-                } else {
-                    // A deliberate skip - a group filter or dependsOnMethods.
-                    getTest().skip("Test skipped");
+                    getTest().fail(label + reason);
                 }
             }
 
@@ -175,7 +197,20 @@ public class BaseTest {
         } finally {
             currentTest.remove();
             currentDriver.remove();
+            setupCompleted.remove();
         }
+    }
+
+    /**
+     * Names the innermost cause, for exceptions this class wrapped itself.
+     * @return simple class name and message of the deepest cause
+     */
+    private static String describeRootCause(Throwable thrown) {
+        Throwable root = thrown;
+        while (root.getCause() != null) {
+            root = root.getCause();
+        }
+        return root.getClass().getSimpleName() + ": " + root.getMessage();
     }
 
     /**
