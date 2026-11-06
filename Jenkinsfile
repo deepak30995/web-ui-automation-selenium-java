@@ -26,7 +26,17 @@ pipeline {
         choice(name: 'BROWSER',       choices: ['chrome', 'firefox', 'edge'],
                description: 'Browser')
         booleanParam(name: 'RECORD_VIDEO', defaultValue: true,  description: 'Record video')
-        booleanParam(name: 'AUTO_FIX',     defaultValue: false, description: 'Agent may attempt a fix')
+        // On by default, so the scheduled run completes the handoff the two agents
+        // exist for: lead diagnoses, senior repairs. A scheduled build takes the
+        // parameter defaults, so false here meant fix-failure.sh had never once run.
+        //
+        // Safe to default on because the gates are in fix-failure.sh, not here. It
+        // acts only on a STALE_LOCATOR verdict and exits untouched on every other
+        // category; it re-runs the failing test and abandons the change unless that
+        // test now passes; the lead reviews the result and only APPROVE opens a PR.
+        // It never merges and never commits to main - the branch and the PR are the
+        // whole output, so the worst case is a pull request nobody wanted.
+        booleanParam(name: 'AUTO_FIX',     defaultValue: true,  description: 'Agent may attempt a stale-locator fix')
     }
 
     options {
