@@ -2,7 +2,14 @@
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
 
 <!-- Critical path only. Runs sequentially - this is a gate, not a sweep. -->
-<suite name="Smoke Run" verbose="1">
+<!-- configfailurepolicy="continue" scopes a configuration failure to the test it
+     happened on. TestNG's default is "skip", which retires every remaining test
+     method in the suite after the first @BeforeMethod failure - and re-attaches
+     that first exception to each one, so they are reported as failures of a setup
+     that in fact ran and passed for them. One grid hiccup cost all three tests on
+     2026-11-05 that way. alwaysRun="true" on our config methods already assumes a
+     failure does not poison later tests; this makes TestNG agree. -->
+<suite name="Smoke Run" verbose="1" configfailurepolicy="continue">
 
     <listeners>
         <!-- Applies RetryAnalyzer to every test, so new tests never miss it -->

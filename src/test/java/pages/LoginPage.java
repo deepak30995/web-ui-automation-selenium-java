@@ -26,7 +26,7 @@ public class LoginPage extends BasePage {
     @FindBy(xpath = "//button[@title='Continue with email']")
     private WebElement continueWithEmailButton;
 
-    @FindBy(id = "input-email")
+    @FindBy(id = "inputemail")
     private WebElement emailInputField;
 
     @FindBy(id = "input-password")

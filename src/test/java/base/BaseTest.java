@@ -43,6 +43,12 @@ public class BaseTest {
     /**
      * Whether setUp ran to completion for the test on this thread.
      *
+     * This tracks <em>this</em> method only, which is sound because setUp is the one
+     * @BeforeMethod in the project - Base owns setup, by convention. A second
+     * @BeforeMethod added in a test class would not be covered: a failure there would
+     * be read as case 3 below rather than as a setup failure, so set this flag from
+     * it too if one is ever introduced.
+     *
      * TestNG reports an attempt that RetryAnalyzer is about to re-run with status
      * SKIP - the very status a @BeforeMethod failure produces - so the status alone
      * cannot tell the two apart. Without this flag tearDown called every retried
@@ -144,26 +150,32 @@ public class BaseTest {
                 getTest().fail("Test failed: " + result.getThrowable().getMessage());
 
             } else if (result.getStatus() == ITestResult.SKIP) {
-                // Three different things arrive here with this one status, and they
-                // need three different reports:
+                // Four different things arrive here with this one status, and they
+                // need four different reports. Taken in this order, because more than
+                // one condition can hold at once and the earlier ones are stronger:
                 //
-                //  - a @BeforeMethod failure. TestNG skips the test method itself and
-                //    records the config exception on the result. Without this branch
-                //    the Extent node kept its default status and rendered as a PASS,
-                //    so a run where nothing executed was emailed as all green.
-                //  - an attempt RetryAnalyzer is about to re-run. It failed inside the
-                //    test, not in setUp, and setupCompleted is what says so.
-                //  - a deliberate skip from a group filter or dependsOnMethods, which
-                //    carries no throwable.
+                //  1. this test's own @BeforeMethod failed. TestNG skips the test
+                //     method and records the config exception on the result. Without
+                //     this case the Extent node kept its default status and rendered
+                //     as a PASS, so a run where nothing executed was emailed as green.
+                //  2. an attempt RetryAnalyzer is about to re-run. It failed inside
+                //     the test, not in setUp. Reported as the failure it is.
+                //  3. TestNG skipped the test because some *other* test's config
+                //     method failed earlier in the suite - its configfailurepolicy.
+                //     The throwable is the other test's exception, reused, so this
+                //     test neither failed nor was retried: it never ran at all.
+                //  4. a deliberate skip from a group filter or dependsOnMethods,
+                //     which carries no throwable.
                 //
-                // The first two are reported as failures, not skips, to match the
-                // suite result: surefire counts them as failures and so does the email.
+                // 1 and 2 are reported as failures, not skips, to match the suite
+                // result: surefire counts them as failures and so does the email.
                 Throwable cause = result.getThrowable();
+                boolean setupFailed = !setupCompleted.get();
+
                 if (cause == null) {
                     getTest().skip("Test skipped");
-                } else {
-                    boolean setupFailed = !setupCompleted.get();
 
+                } else if (setupFailed || result.wasRetried()) {
                     String screenshotPath = captureScreenshot(method.getName());
                     if (screenshotPath != null) {
                         ExtentReportManager.addScreenshot(getTest(), screenshotPath,
@@ -182,6 +194,15 @@ public class BaseTest {
 
                     UnifiedDriverManager.markTestStatus("failed", reason);
                     getTest().fail(label + reason);
+
+                } else {
+                    // Case 3. No screenshot and no failure bundle: this test never
+                    // ran, so the browser is sitting on the base URL and its DOM says
+                    // nothing about anything. Capturing it buried the one bundle that
+                    // did matter under two that carried another test's exception, and
+                    // the agents read them as evidence about this test.
+                    getTest().skip("Skipped by TestNG after an earlier configuration "
+                            + "failure - " + cause.getMessage());
                 }
             }
 
