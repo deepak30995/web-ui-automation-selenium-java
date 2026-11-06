@@ -47,6 +47,18 @@ services:
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
       # Kills a browser session idle this long, so a hung test frees its slot
       - SE_NODE_SESSION_TIMEOUT=300
+      # Live view without the password prompt. Each test quits its driver, so a
+      # run opens a new session - and a new VNC connection - every few seconds,
+      # which meant re-typing "secret" to watch any single step.
+      - SE_VNC_NO_PASSWORD=true
+      # Watch-only. Two reasons: the live view is interactive by default, so a
+      # stray click lands in the browser under test and corrupts the run; and
+      # with the password gone, anyone who can reach the published hub port can
+      # open this view - they should not be able to drive a logged-in session.
+      - SE_VNC_VIEW_ONLY=true
+      # Both are read with `[ ! -z ]` in the image's start-vnc.sh, so ANY value
+      # switches them on - SE_VNC_VIEW_ONLY=false enables view-only exactly as
+      # true does. To turn either off, delete the line; do not set it to false.
     shm_size: 2gb
     networks:
       - selenium-grid
@@ -75,6 +87,18 @@ services:
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
       # Kills a browser session idle this long, so a hung test frees its slot
       - SE_NODE_SESSION_TIMEOUT=300
+      # Live view without the password prompt. Each test quits its driver, so a
+      # run opens a new session - and a new VNC connection - every few seconds,
+      # which meant re-typing "secret" to watch any single step.
+      - SE_VNC_NO_PASSWORD=true
+      # Watch-only. Two reasons: the live view is interactive by default, so a
+      # stray click lands in the browser under test and corrupts the run; and
+      # with the password gone, anyone who can reach the published hub port can
+      # open this view - they should not be able to drive a logged-in session.
+      - SE_VNC_VIEW_ONLY=true
+      # Both are read with `[ ! -z ]` in the image's start-vnc.sh, so ANY value
+      # switches them on - SE_VNC_VIEW_ONLY=false enables view-only exactly as
+      # true does. To turn either off, delete the line; do not set it to false.
     shm_size: 2gb
     networks:
       - selenium-grid
@@ -101,6 +125,18 @@ services:
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
       # Kills a browser session idle this long, so a hung test frees its slot
       - SE_NODE_SESSION_TIMEOUT=300
+      # Live view without the password prompt. Each test quits its driver, so a
+      # run opens a new session - and a new VNC connection - every few seconds,
+      # which meant re-typing "secret" to watch any single step.
+      - SE_VNC_NO_PASSWORD=true
+      # Watch-only. Two reasons: the live view is interactive by default, so a
+      # stray click lands in the browser under test and corrupts the run; and
+      # with the password gone, anyone who can reach the published hub port can
+      # open this view - they should not be able to drive a logged-in session.
+      - SE_VNC_VIEW_ONLY=true
+      # Both are read with `[ ! -z ]` in the image's start-vnc.sh, so ANY value
+      # switches them on - SE_VNC_VIEW_ONLY=false enables view-only exactly as
+      # true does. To turn either off, delete the line; do not set it to false.
     shm_size: 2gb
     networks:
       - selenium-grid
