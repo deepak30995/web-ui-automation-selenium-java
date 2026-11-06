@@ -14,6 +14,7 @@ GitHub Actions, Jenkins, cron or a laptop.
 import html
 import os
 import pathlib
+import re
 import smtplib
 from email.message import EmailMessage
 
@@ -31,6 +32,39 @@ def _read(run_dir, name, default=""):
     return f.read_text(errors="replace") if f.is_file() else default
 
 
+_PR_URL = re.compile(r"https://github\.com/[\w.-]+/[\w.-]+/pull/\d+")
+
+
+def _autofix(run_dir):
+    """What the Senior SDET did, and the pull request if one was opened.
+
+    Reported because a run that ends in a PR is the one result a reader has to act
+    on, and it was the only part of the pipeline the email said nothing about - the
+    URL lived solely in logs/autofix.log inside the archive. The outcome is
+    summarised rather than quoted: the full log is attached anyway, and the Lead's
+    reasoning is already in the review section above.
+
+    Returns (status, pr_url) or None when auto-fix did not run at all.
+    """
+    log = _read(run_dir, "logs/autofix.log")
+    if not log.strip():
+        return None
+
+    found = _PR_URL.search(log)
+    if found:
+        return ("A stale locator was repaired. The fix was verified by re-running "
+                "the failing test, and the Lead SDET approved the change. Nothing "
+                "has been merged - review and merge it yourself.", found.group(0))
+
+    if "Only a STALE_LOCATOR verdict is auto-fixable" in log:
+        return ("No fix attempted - this failure is not a stale locator, so the "
+                "repository was left untouched.", None)
+
+    return ("A fix was attempted but no pull request was opened. The branch has "
+            "been left for a human - see logs/autofix.log in the attached archive.",
+            None)
+
+
 def build_message(run_dir, result, env=None):
     """Assemble the email. Does no I/O beyond reading the run directory."""
     env = os.environ if env is None else env
@@ -43,6 +77,18 @@ def build_message(run_dir, result, env=None):
     prefix = env.get("EMAIL_SUBJECT_PREFIX", "[UI Automation]")
     colour = "#1a7f37" if result == "PASSED" else "#b42318"
 
+    # Placed above the review rather than below it: a pull request is the one thing
+    # in this mail that needs the reader to do something.
+    fix = _autofix(run_dir)
+    fix_html = fix_text = ""
+    if fix:
+        status, pr_url = fix
+        link = (f'<p style="margin:8px 0 0"><a href="{html.escape(pr_url)}">'
+                f'{html.escape(pr_url)}</a></p>') if pr_url else ""
+        fix_html = (f'<h3 style="margin:20px 0 6px">Auto-fix</h3>'
+                    f'<p style="margin:0">{html.escape(status)}</p>{link}')
+        fix_text = f"\n\nAuto-fix\n\n{status}" + (f"\n{pr_url}" if pr_url else "")
+
     body = f"""<html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;
   font-size:14px;color:#1f2328;line-height:1.5">
 <h2 style="margin:0 0 4px">UI Automation —
@@ -50,6 +96,7 @@ def build_message(run_dir, result, env=None):
 <p style="margin:0 0 16px;color:#656d76">Run {html.escape(run_id)}</p>
 <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;
   padding:12px;white-space:pre-wrap">{html.escape(summary)}</pre>
+{fix_html}
 <h3 style="margin:20px 0 6px">Agent review</h3>
 <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;
   padding:12px;white-space:pre-wrap">{html.escape(review)}</pre>
@@ -61,7 +108,8 @@ def build_message(run_dir, result, env=None):
     msg["From"] = env.get("EMAIL_FROM") or env.get("SMTP_USER", "")
     msg["To"] = env.get("EMAIL_TO", "")
     msg.set_content(
-        f"UI Automation {result} — run {run_id}\n\n{summary}\n\nAgent review\n\n{review}")
+        f"UI Automation {result} — run {run_id}\n\n{summary}{fix_text}"
+        f"\n\nAgent review\n\n{review}")
     msg.add_alternative(body, subtype="html")
 
     for path, maintype, subtype in (
